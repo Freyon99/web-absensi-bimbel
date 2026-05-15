@@ -60,6 +60,7 @@ model Absensi {
 model AbsensiGuru {
   id          String    @id @default(uuid())
   waktuMasuk  DateTime  @default(now())
+  waktuPulang  DateTime  @default(now())
 
   guruId      String
   guru        Pengguna  @relation(fields: [guruId], references: [id])
