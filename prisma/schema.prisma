@@ -7,23 +7,22 @@ datasource db {
   provider = "postgresql"
 }
 
-// 2. DI BAWAH INI BARU MASUKKAN MODEL ANDA YANG KEMARIN
-model Pengguna {
-  id              String            @id @default(uuid())
-  nama            String
-  email           String            @unique
-  password        String
-  peran           Peran
-  createdAt       DateTime          @default(now())
-
-  daftarMurid     Murid[]
-  daftarAbsensi   Absensi[]
-  logAbsenGuru    AbsensiGuru[]
+model pengguna {
+  id            String        @id @default(uuid())
+  nama          String
+  email         String        @unique
+  password      String
+  peran         Peran
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  daftarAbsensi Absensi[]
+  logAbsenGuru  AbsensiGuru[]
+  daftarMurid   Murid[]
 }
 
 model Murid {
-  id               String   @id @default(uuid())
-  tanggalMasuk     DateTime @default(now())
+  id               String    @id @default(uuid())
+  tanggalMasuk     DateTime  @default(now())
   namaLengkap      String
   namaPanggilan    String
   kelas            String
@@ -34,41 +33,48 @@ model Murid {
   alamatDomisili   String
   noHpOrangTua     String
   hari             String
-  jam              String
   pembayaran       String
   mapel            String
-  catatanAnak      String?  @db.Text
-  createdAt        DateTime @default(now())
-
+  catatanAnak      String?
+  createdAt        DateTime  @default(now())
   guruId           String
-  guru             Pengguna   @relation(fields: [guruId], references: [id])
+  jam              String
+  updatedAt        DateTime  @updatedAt
   riwayatAbsensi   Absensi[]
+  guru             Pengguna  @relation(fields: [guruId], references: [id])
+
+  @@index([guruId])
 }
 
 model Absensi {
-  id          String    @id @default(uuid())
-  tanggal     DateTime  @default(now())
-  status      String    
+  id      String        @id @default(uuid())
+  tanggal DateTime      @default(now())
+  muridId String
+  guruId  String
+  status  StatusAbsensi
+  guru    Pengguna      @relation(fields: [guruId], references: [id])
+  murid   Murid         @relation(fields: [muridId], references: [id], onDelete: Cascade)
 
-  muridId     String
-  murid       Murid     @relation(fields: [muridId], references: [id], onDelete: Cascade)
-
-  guruId      String
-  guru        Pengguna  @relation(fields: [guruId], references: [id])
+  @@index([tanggal])
+  @@index([guruId])
+  @@index([muridId])
 }
 
 model AbsensiGuru {
-  id          String    @id @default(uuid())
-  waktuMasuk  DateTime  @default(now())
-  waktuPulang DateTime  @default(now())
-  Sesi        String
-  tanggalMasuk DateTime  @default(now())
-
-  guruId      String
-  guru        Pengguna  @relation(fields: [guruId], references: [id])
+  id         String   @id @default(uuid())
+  waktuMasuk DateTime @default(now())
+  guruId     String
+  guru       Pengguna @relation(fields: [guruId], references: [id])
 }
 
 enum Peran {
   ADMIN
   GURU
+}
+
+enum StatusAbsensi {
+  HADIR
+  IZIN
+  SAKIT
+  ALPHA
 }
