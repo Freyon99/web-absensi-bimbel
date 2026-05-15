@@ -1,65 +1,97 @@
+"use client";
 import Image from "next/image";
+import { useState } from "react";
 
 export default function Home() {
+  const [role, setRole] = useState("");
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+    <div className="relative min-h-screen overflow-hidden bg-[#FFFDF8]">
+      {/* Background Shape */}
+      <div
+        className="absolute inset-0 z-0 bg-[#F6E7B5]"
+        style={{
+          clipPath: "polygon(0 55%, 100% 35%, 100% 100%, 0% 100%)",
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center px-4 pt-16">
+        {/* Logo */}
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+          src="/logo.png"
+          alt="Aksara Bimbel"
+          width={180}
+          height={180}
+          className="mb-4"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* Title */}
+        <h1 className="text-5xl font-bold tracking-wide text-[#0F3D8C]">
+          Aksara Bimbel
+        </h1>
+
+        <p className="mt-3 text-center text-sm text-[#7A7A7A]">
+          Belajar Asik Bersama Aksara
+        </p>
+
+        {/* Login Card */}
+        <div className="mt-10 w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+          {/* Email */}
+          <div className="mb-5">
+            <label className="mb-2 block text-sm font-medium text-[#0F3D8C]">
+              Email / Username
+            </label>
+
+            <input
+              type="email"
+              placeholder="Masukkan email"
+              className="w-full rounded-xl border border-[#D6B25E] px-4 py-3 outline-none transition focus:border-[#0F3D8C]"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          {/* Password */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-[#0F3D8C]">
+              Password
+            </label>
+
+            <input
+              type="password"
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-[#D6B25E] px-4 py-3 outline-none transition focus:border-[#0F3D8C]"
+            />
+          </div>
+
+          {/* Remember */}
+          <div className="mb-6 flex justify-end text-sm">
+            <button className="text-[#0F3D8C] hover:underline">
+              Forgot Password
+            </button>
+          </div>
+
+          {/* Role */}
+          <div className="mb-5">
+            <label className="mb-2 block text-sm font-medium text-[#0F3D8C]">
+              Role
+            </label>
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-xl border border-[#D6B25E] px-4 py-3 text-zinc-400 outline-none transition focus:border-[#0F3D8C]"
+            >
+              <option value="">Pilih Role</option>
+              <option value="guru">Guru</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          {/* Button */}
+          <button className="w-full rounded-xl bg-[#0F3D8C] py-3 font-semibold text-white transition hover:bg-[#0B2E69]">
+            Login
+          </button>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
