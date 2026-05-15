@@ -7,73 +7,65 @@ datasource db {
   provider = "postgresql"
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model classes {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nama_kelas    String
-  guru_utama_id String?    @db.Uuid
-  created_at    DateTime?  @default(now()) @db.Timestamp(6)
-  users         users?     @relation(fields: [guru_utama_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  students      students[]
+// 2. DI BAWAH INI BARU MASUKKAN MODEL ANDA YANG KEMARIN
+model Pengguna {
+  id              String            @id @default(uuid())
+  nama            String
+  email           String            @unique
+  password        String
+  peran           Peran
+  createdAt       DateTime          @default(now())
+
+  daftarMurid     Murid[]
+  daftarAbsensi   Absensi[]
+  logAbsenGuru    AbsensiGuru[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model student_attendance {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  student_id String?   @db.Uuid
-  teacher_id String?   @db.Uuid
-  tanggal    DateTime  @db.Date
-  jam_absen  DateTime  @db.Time(6)
-  status     String
-  note       String?
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users      users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Murid {
+  id               String   @id @default(uuid())
+  tanggalMasuk     DateTime @default(now())
+  namaLengkap      String
+  namaPanggilan    String
+  kelas            String
+  sekolahAsal      String
+  namaOrangTuaWali String
+  pekerjaanAyah    String
+  pekerjaanIbu     String
+  alamatDomisili   String
+  noHpOrangTua     String
+  hari             String
+  jam              String
+  pembayaran       String
+  mapel            String
+  catatanAnak      String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  guruId           String
+  guru             Pengguna   @relation(fields: [guruId], references: [id])
+  riwayatAbsensi   Absensi[]
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model students {
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nama               String
-  kelas_id           String?              @db.Uuid
-  created_by         String?              @db.Uuid
-  created_at         DateTime?            @default(now()) @db.Timestamp(6)
-  student_attendance student_attendance[]
-  users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classes            classes?             @relation(fields: [kelas_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  teacher_students   teacher_students[]
+model Absensi {
+  id          String    @id @default(uuid())
+  tanggal     DateTime  @default(now())
+  status      String    
+
+  muridId     String
+  murid       Murid     @relation(fields: [muridId], references: [id], onDelete: Cascade)
+
+  guruId      String
+  guru        Pengguna  @relation(fields: [guruId], references: [id])
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model teacher_attendance {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  teacher_id String?   @db.Uuid
-  tanggal    DateTime  @db.Date
-  jam_masuk  DateTime  @db.Time(6)
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  users      users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model AbsensiGuru {
+  id          String    @id @default(uuid())
+  waktuMasuk  DateTime  @default(now())
+
+  guruId      String
+  guru        Pengguna  @relation(fields: [guruId], references: [id])
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model teacher_students {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  teacher_id String?   @db.Uuid
-  student_id String?   @db.Uuid
-  students   students? @relation(fields: [student_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users      users?    @relation(fields: [teacher_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model users {
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String
-  email              String               @unique
-  password           String
-  role               String
-  created_at         DateTime?            @default(now()) @db.Timestamp(6)
-  classes            classes[]
-  student_attendance student_attendance[]
-  students           students[]
-  teacher_attendance teacher_attendance[]
-  teacher_students   teacher_students[]
+enum Peran {
+  ADMIN
+  GURU
 }
