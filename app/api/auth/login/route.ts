@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import  prisma  from "@/lib/prisma"
 import { comparePassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
 import { z } from "zod"
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     const data = loginSchema.parse(body)
 
-    const user = await prisma.pengguna.findUnique({
+    const user = await prisma.Pengguna.findUnique({
       where: {
         email: data.email,
       },

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma"
+import  prisma  from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { z } from "zod"
 
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const data = registerSchema.parse(body)
 
-    const existingUser = await prisma.pengguna.findUnique({
+    const existingUser = await prisma.Pengguna.findUnique({
       where: {
         email: data.email,
       },
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     const hashedPassword = await hashPassword(data.password)
 
-    const user = await prisma.pengguna.create({
+    const user = await prisma.Pengguna.create({
       data: {
         nama: data.nama,
         email: data.email,
