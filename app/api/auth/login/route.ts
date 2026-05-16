@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     const data = loginSchema.parse(body)
 
-    const user = await prisma.Pengguna.findUnique({
+    const user = await prisma.pengguna.findUnique({
       where: {
         email: data.email,
       },
@@ -52,11 +52,12 @@ export async function POST(req: Request) {
       role: user.peran,
     })
 
+    const { password, ...safeUser } = user
     return Response.json({
-      token,
-      user,
+    token,
+    user: safeUser,
     })
-
+    
   } catch (error) {
     console.log(error)
 

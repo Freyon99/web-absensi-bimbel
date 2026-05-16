@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const data = registerSchema.parse(body)
 
-    const existingUser = await prisma.Pengguna.findUnique({
+    const existingUser = await prisma.pengguna.findUnique({
       where: {
         email: data.email,
       },
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     const hashedPassword = await hashPassword(data.password)
 
-    const user = await prisma.Pengguna.create({
+    const user = await prisma.pengguna.create({
       data: {
         nama: data.nama,
         email: data.email,
@@ -43,7 +43,8 @@ export async function POST(req: Request) {
       },
     })
 
-    return Response.json(user)
+    const { password, ...safeUser } = user
+    return Response.json(safeUser)
 
   } catch (error) {
     console.log(error)

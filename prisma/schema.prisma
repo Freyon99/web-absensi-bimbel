@@ -37,11 +37,11 @@ model Murid {
   mapel            String
   catatanAnak      String?
   createdAt        DateTime  @default(now())
-  guruId           String
+  guruId           String?
   jam              String
   updatedAt        DateTime  @updatedAt
   riwayatAbsensi   Absensi[]
-  guru             Pengguna  @relation(fields: [guruId], references: [id])
+  guru             Pengguna? @relation(fields: [guruId], references: [id], onDelete: SetNull)
 
   @@index([guruId])
 }
@@ -50,10 +50,10 @@ model Absensi {
   id      String        @id @default(uuid())
   tanggal DateTime      @default(now())
   muridId String
-  guruId  String
+  guruId  String?
   status  StatusAbsensi
-  guru    Pengguna      @relation(fields: [guruId], references: [id])
-  murid   Murid         @relation(fields: [muridId], references: [id], onDelete: Cascade)
+  guru    Pengguna?     @relation(fields: [guruId], references: [id], onDelete: SetNull)
+  murid   Murid         @relation(fields: [muridId], references: [id], onDelete: Cascade) // Murid tetap cascade agar jika murid dihapus, absensinya ikut terhapus
 
   @@index([tanggal])
   @@index([guruId])
@@ -64,7 +64,7 @@ model AbsensiGuru {
   id         String   @id @default(uuid())
   waktuMasuk DateTime @default(now())
   guruId     String
-  guru       Pengguna @relation(fields: [guruId], references: [id])
+  guru       Pengguna @relation(fields: [guruId], references: [id], onDelete: Cascade)
 }
 
 enum Peran {
