@@ -8,30 +8,26 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
   peran: z.enum(["ADMIN", "GURU"]).optional(),
+  noHp: z.string().optional(), // ➕ Tambahkan ini
 })
 
-// Fungsi pembantu mengecekan Admin yang aman
 async function isAdmin(req: Request) {
   const authHeader = req.headers.get("authorization")
-  const tokenString = authHeader?.split(" ")[1] // Mengambil string token murni
-  
+  const tokenString = authHeader?.split(" ")[1]
   if (!tokenString) return false
-  
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET)
     const { payload } = await jwtVerify(tokenString, secret)
-    const userRole = payload.peran || payload.role // Mendukung properti peran atau role
+    const userRole = payload.peran || payload.role
     return userRole === "ADMIN"
   } catch {
     return false
   }
 }
 
-// 1. UPDATE DATA GURU/USER (HANYA ADMIN)
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    
     if (!(await isAdmin(req))) {
       return Response.json({ message: "Akses ditolak: Hanya ADMIN yang diizinkan" }, { status: 403 })
     }
@@ -46,7 +42,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const userDiperbarui = await prisma.pengguna.update({
       where: { id },
       data,
-      select: { id: true, nama: true, email: true, peran: true },
+      select: { 
+        nama: true, 
+        email: true, 
+        peran: true,
+        noHp: true // ➕ Izinkan noHp terpilih agar muncul setelah diupdate
+      },
     })
 
     return Response.json({ message: "Data pengguna berhasil diperbarui", data: userDiperbarui })
@@ -54,15 +55,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (error instanceof z.ZodError) {
       return Response.json({ message: "Format data tidak valid", errors: error.issues }, { status: 400 })
     }
-    return Response.json({ message: "Gagal memperbarui pengguna", detail: error instanceof Error ? error.message : error }, { status: 500 })
+    return Response.json({ message: "Gagal memperbarui pengguna" }, { status: 500 })
   }
 }
 
-// 2. HAPUS DATA GURU/USER (HANYA ADMIN)
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-
     if (!(await isAdmin(req))) {
       return Response.json({ message: "Akses ditolak: Hanya ADMIN yang diizinkan" }, { status: 403 })
     }
@@ -73,6 +72,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     return Response.json({ message: "Akun pengguna berhasil dihapus" })
   } catch (error) {
-    return Response.json({ message: "Gagal menghapus pengguna", detail: error instanceof Error ? error.message : error }, { status: 500 })
+    return Response.json({ message: "Gagal menghapus pengguna" }, { status: 500 })
   }
 }

@@ -4,52 +4,72 @@ import { jwtVerify } from "jose"
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname
+  
+  // 1. Ambil token dari Cookies halaman web atau Header API
+  const tokenFromHeader = req.headers.get("authorization")?.split(" ")[1]
+  const tokenFromCookie = req.cookies.get("token")?.value
+  const token = tokenFromCookie || tokenFromHeader
 
-  // 1. Ambil token dari Header Authorization (Format: Bearer <token>)
-  const authHeader = req.headers.get("authorization")
-  const token = authHeader?.split(" ")[1]
+  // --- 2. KUNCI HALAMAN LOGIN UTAMA (/) ---
+  // Jika user mencoba mengetik "/" padahal token cookie-nya masih aktif, BLOKIR dan REDIRECT!
+  if (path === "/") {
+    if (token) {
+      try {
+        const secret = new TextEncoder().encode(process.env.JWT_SECRET)
+        const { payload } = await jwtVerify(token, secret)
+        const userRole = (payload.peran || payload.role) as string
 
-  if (!token) {
-    return NextResponse.json(
-      { message: "Autentikasi gagal: Token tidak ditemukan" },
-      { status: 401 }
-    )
-  }
-
-  try {
-    // 2. Verifikasi Token JWT
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret)
-
-    // Simpan data peran (role) dari token payload
-    const userRole = payload.peran as string
-
-    // 3. PROTEKSI ROLE: Hanya ADMIN yang boleh mendaftarkan murid baru
-    if (path.startsWith("/api/murid") && req.method === "POST") {
-      if (userRole !== "ADMIN") {
-        return NextResponse.json(
-          { message: "Akses ditolak: Hanya ADMIN yang boleh menambah murid" },
-          { status: 403 }
-        )
+        if (userRole === "ADMIN") {
+          return NextResponse.redirect(new URL("/admin", req.url))
+        } else {
+          return NextResponse.redirect(new URL("/dashboard", req.url))
+        }
+      } catch (error) {
+        // Jika token ternyata rusak/palsu, hapus cookie dan biarkan masuk halaman login
+        const response = NextResponse.next()
+        response.cookies.delete("token")
+        return response
       }
     }
-
-    // Jika token valid dan role sesuai, izinkan request berlanjut ke endpoint API asli
-    return NextResponse.next()
-
-  } catch (error) {
-    return NextResponse.json(
-      { message: "Autentikasi gagal: Token tidak valid atau kedaluwarsa" },
-      { status: 401 }
-    )
   }
+
+  // --- 3. PROTEKSI HALAMAN VISUAL WEB (/dashboard dan /admin) ---
+  if (path.startsWith("/dashboard") || path.startsWith("/admin")) {
+    if (!token) {
+      return NextResponse.redirect(new URL("/", req.url))
+    }
+
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET)
+      const { payload } = await jwtVerify(token, secret)
+      const userRole = (payload.peran || payload.role) as string
+
+      // Batasi hak akses silang halaman
+      if (path.startsWith("/dashboard") && userRole === "ADMIN") {
+        return NextResponse.redirect(new URL("/admin", req.url))
+      }
+      if (path.startsWith("/admin") && userRole === "GURU") {
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
+
+      return NextResponse.next()
+    } catch {
+      // Jika token kedaluwarsa atau salah, tendang ke login halaman awal
+      const response = NextResponse.redirect(new URL("/", req.url))
+      response.cookies.delete("token")
+      return response
+    }
+  }
+
+  return NextResponse.next()
 }
 
-// 4. Atur rute mana saja yang wajib melewati proteksi middleware ini
 export const config = {
   matcher: [
+    "/", // Ikut sertakan rute dasar "/" agar terkunci mutlak
+    "/dashboard/:path*",
+    "/admin/:path*",
     "/api/murid/:path*",
-    "/api/absensi/:path*",
-    "/api/absensi-guru/:path*",
+    "/api/absences/:path*",
   ],
 }

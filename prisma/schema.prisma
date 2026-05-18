@@ -13,6 +13,7 @@ model Pengguna {
   email         String        @unique
   password      String
   peran         Peran
+  noHp          String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   daftarAbsensi Absensi[]
@@ -61,10 +62,11 @@ model Absensi {
 }
 
 model AbsensiGuru {
-  id         String   @id @default(uuid())
-  waktuMasuk DateTime @default(now())
-  guruId     String
-  guru       Pengguna @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  waktuMasuk  DateTime  @default(now())
+  waktuPulang DateTime? // Tambahkan kolom opsional ini
+  guruId      String
+  guru        Pengguna  @relation(fields: [guruId], references: [id], onDelete: Cascade)
 }
 
 enum Peran {

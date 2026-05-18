@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       role: user.peran,
     })
 
-    const { password, ...safeUser } = user
+    const { id,password, ...safeUser } = user
     return Response.json({
     token,
     user: safeUser,

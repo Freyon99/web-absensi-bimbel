@@ -17,7 +17,6 @@ const updateMuridSchema = z.object({
   pembayaran: z.string().optional(),
   mapel: z.string().optional(),
   catatanAnak: z.string().optional().nullable(),
-  guruId: z.string().optional(),
 })
 
 // 1. UPDATE DATA MURID (Bisa diakses ADMIN & GURU)
@@ -28,7 +27,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json()
     const data = updateMuridSchema.parse(body)
 
-    // Update data di database
     const muridDiperbarui = await prisma.murid.update({
       where: { id },
       data,
@@ -51,12 +49,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const authHeader = req.headers.get("authorization")
     const token = authHeader?.split(" ")
 
-    // Validasi token dan proteksi role
     if (token && token[1]) {
       const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-      const { payload } = await jwtVerify(token[1], secret) // Menggunakan token[1] agar berupa string tunggal
+      const { payload } = await jwtVerify(token[1], secret)
 
-      if (payload.peran !== "ADMIN") {
+      if (payload.peran !== "ADMIN" && payload.role !== "ADMIN") {
         return Response.json(
           { message: "Akses ditolak: Hanya ADMIN yang bisa menghapus murid" }, 
           { status: 403 }
@@ -69,7 +66,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       )
     }
 
-    // Eksekusi hapus data jika lolos validasi ADMIN
     await prisma.murid.delete({
       where: { id },
     })

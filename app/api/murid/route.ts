@@ -16,7 +16,6 @@ const muridSchema = z.object({
   pembayaran: z.string(),
   mapel: z.string(),
   catatanAnak: z.string().optional().nullable(), // Tambahkan nullable agar aman jika dikirim string kosong/null
-  guruId: z.string().optional().nullable(), // UBAH BARIS INI agar Zod tidak error jika nilainya null
 })
 
 
@@ -43,7 +42,6 @@ export async function POST(req: Request) {
         pembayaran: data.pembayaran,
         mapel: data.mapel,
         catatanAnak: data.catatanAnak || null,
-        guruId: data.guruId || null, // ⚠️ ID ini harus berwujud string UUID Guru yang valid di database!
       },
     })
 
