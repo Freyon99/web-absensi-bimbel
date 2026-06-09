@@ -6,9 +6,9 @@ import { jwtVerify } from "jose"
 const updateUserSchema = z.object({
   nama: z.string().optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(6).optional().or(z.literal("")),
   peran: z.enum(["ADMIN", "GURU"]).optional(),
-  noHp: z.string().optional(), // ➕ Tambahkan ini
+  noHp: z.string().min(11).optional(),
 })
 
 async function isAdmin(req: Request) {
@@ -35,8 +35,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json()
     const data = updateUserSchema.parse(body)
 
-    if (data.password) {
+    if (data.password && data.password.trim() !== "") {
       data.password = await hashPassword(data.password)
+    } else {
+      delete data.password
     }
 
     const userDiperbarui = await prisma.pengguna.update({

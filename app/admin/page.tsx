@@ -42,7 +42,7 @@ export default function AdminPage() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const { showNotification, showConfirmLogout, setIsLoadingGlobal } = useNotification();
+  const { showNotification, showConfirm, setIsLoadingGlobal } = useNotification();
 
   const [menuAktif, setMenuAktif] = useState("Data Siswa");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -58,7 +58,7 @@ export default function AdminPage() {
 
   const [formGuru, setFormGuru] = useState({ nama: "", email: "", password: "", noHp: "" }); // SINKRON: Tambah noHp
   const [formSiswa, setFormSiswa] = useState({
-    namaLengkap: "", namaPanggilan: "", kelas: "Calistung", sekolahAsal: "",
+    namaLengkap: "", namaPanggilan: "", kelas: "CALISTUNG", sekolahAsal: "",
     namaOrangTuaWali: "", pekerjaanAyah: "", pekerjaanIbu: "", alamatDomisili: "",
     noHpOrangTua: "", hari: "", jam: "", pembayaran: "BELUM LUNAS", mapel: "", catatanAnak: "", 
   });
@@ -224,7 +224,7 @@ export default function AdminPage() {
   };
 
   const handleHapusSiswa = async (id: string, nama: string) => {
-    showConfirmLogout(
+    showConfirm(
       "Hapus Data Murid?",
       `Apakah Anda yakin ingin menghapus data murid ${nama}? Riwayat absensinya juga akan ikut terhapus.`,
       async () => {
@@ -261,7 +261,7 @@ export default function AdminPage() {
 
   const triggerLogoutValidation = () => {
     setShowProfileMenu(false);
-    showConfirmLogout("Konfirmasi Keluar", "Apakah Anda yakin ingin keluar dari sistem Admin Aksara Bimbel?", executeLogout);
+    showConfirm("Konfirmasi Keluar", "Apakah Anda yakin ingin keluar dari sistem Admin Aksara Bimbel?", executeLogout);
   };
 
   const executeLogout = () => {
@@ -271,7 +271,9 @@ export default function AdminPage() {
   };
 
   const filteredSiswa = siswaList.filter((s) => s.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()));
-
+  const formatKelas = (kelas: string) => {
+    return kelas.replace("_", " ")
+  }
   if (!user) return null;
   return (
     <div className="min-h-screen max-w-full flex flex-col bg-[#FFFDF8] overflow-hidden text-gray-900">
@@ -332,7 +334,7 @@ export default function AdminPage() {
                   <button 
                     onClick={() => { 
                       setFormSiswa({
-                        namaLengkap: "", namaPanggilan: "", kelas: "Calistung", sekolahAsal: "",
+                        namaLengkap: "", namaPanggilan: "", kelas: "CALISTUNG", sekolahAsal: "",
                         namaOrangTuaWali: "", pekerjaanAyah: "", pekerjaanIbu: "", alamatDomisili: "",
                         noHpOrangTua: "", hari: "", jam: "", pembayaran: "BELUM LUNAS", mapel: "", catatanAnak: ""
                       }); 
@@ -364,7 +366,7 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-gray-600">{new Date(item.tanggalMasuk).toLocaleDateString("id-ID")}</td>
                         <td className="px-4 py-3 font-semibold text-gray-800">{item.namaLengkap}</td>
                         <td className="px-4 py-3 text-gray-600">{item.namaPanggilan}</td>
-                        <td className="px-4 py-3 text-gray-600">{item.kelas}</td>
+                        <td className="px-4 py-3 text-gray-600">{formatKelas(item.kelas)}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <button onClick={() => openDetailModal(item)} className="mr-2 text-blue-600 hover:underline">Detail</button>
                           <button onClick={() => openEditModal(item)} className="mr-2 text-yellow-600 hover:underline">Edit</button>
@@ -436,7 +438,7 @@ export default function AdminPage() {
                             </button>
                             <button 
                               onClick={() => {
-                                showConfirmLogout("Hapus Akun Pengajar?", `Hapus permanen akun milik ${item.nama}?`, async () => {
+                                showConfirm("Hapus Akun Pengajar?", `Hapus permanen akun milik ${item.nama}?`, async () => {
                                   const token = localStorage.getItem("token");
                                   const res = await fetch(`/api/users/${item.id}`, {
                                     method: "DELETE",
@@ -555,12 +557,57 @@ export default function AdminPage() {
             
             <div>
               <label className="text-xs font-bold text-gray-700 block mb-1">Kelas Tingkat</label>
-              <select value={formSiswa.kelas} onChange={(e) => setFormSiswa({...formSiswa, kelas: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]">
-                {['Calistung', 'SD 1', 'SD 2', 'SD 3', 'SD 4', 'SD 5', 'SD 6', 'SMP 1', 'SMP 2', 'SMP 3', 'SMK 1'].map(k => <option key={k} value={k}>{k}</option>)}
+              <select value={formSiswa.kelas} onChange={(e) => setFormSiswa({...formSiswa,kelas: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]">
+                <option value="CALISTUNG">Calistung</option>
+                <option value="SD_1">SD 1</option>
+                <option value="SD_2">SD 2</option>
+                <option value="SD_3">SD 3</option>
+                <option value="SD_4">SD 4</option>
+                <option value="SD_5">SD 5</option>
+                <option value="SD_6">SD 6</option>
+                <option value="SMP_1">SMP 1</option>
+                <option value="SMP_2">SMP 2</option>
+                <option value="SMP_3">SMP 3</option>
+                <option value="SMK_1">SMK 1</option>
               </select>
             </div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">Sekolah Asal</label><input type="text" required value={formSiswa.sekolahAsal} onChange={(e) => setFormSiswa({...formSiswa, sekolahAsal: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">Nama Orang Tua/Wali</label><input type="text" required value={formSiswa.namaOrangTuaWali} onChange={(e) => setFormSiswa({...formSiswa, namaOrangTuaWali: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>
+            <div>
+  <label className="mb-1 block text-xs font-bold">
+    Pekerjaan Ayah
+  </label>
+
+  <input
+    type="text"
+    value={formSiswa.pekerjaanAyah}
+    onChange={(e) =>
+      setFormSiswa({
+        ...formSiswa,
+        pekerjaanAyah: e.target.value,
+      })
+    }
+    className="w-full rounded-lg border p-2.5"
+  />
+</div>
+
+<div>
+  <label className="mb-1 block text-xs font-bold">
+    Pekerjaan Ibu
+  </label>
+
+  <input
+    type="text"
+    value={formSiswa.pekerjaanIbu}
+    onChange={(e) =>
+      setFormSiswa({
+        ...formSiswa,
+        pekerjaanIbu: e.target.value,
+      })
+    }
+    className="w-full rounded-lg border p-2.5"
+  />
+</div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">No HP Kontak</label><input type="text" required value={formSiswa.noHpOrangTua} onChange={(e) => setFormSiswa({...formSiswa, noHpOrangTua: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">Hari Les</label><input type="text" placeholder="Senin, Rabu" required value={formSiswa.hari} onChange={(e) => setFormSiswa({...formSiswa, hari: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">Jam Les</label><input type="text" placeholder="14:00 - 16:00" required value={formSiswa.jam} onChange={(e) => setFormSiswa({...formSiswa, jam: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>
@@ -591,24 +638,94 @@ export default function AdminPage() {
       {modalType === "detailSiswa" && selectedSiswa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-sm text-gray-900 border border-gray-100">
-            <h3 className="text-lg font-bold text-[#0F3D8C] border-b pb-2 flex items-center gap-2">📋 Kartu Informasi Murid</h3>
+            
+            <h3 className="text-lg font-bold text-[#0F3D8C] border-b pb-2 flex items-center gap-2">
+              📋 Kartu Informasi Murid
+            </h3>
+
             <div className="space-y-2.5 divide-y divide-gray-50 max-h-[60vh] overflow-y-auto pr-1">
-              <p className="pt-1"><span className="font-bold text-gray-500 block text-xs uppercase">Nama Lengkap</span> <span className="text-gray-900 font-semibold text-base">{selectedSiswa.namaLengkap}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Nama Panggilan</span> <span className="text-gray-800">{selectedSiswa.namaPanggilan}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Kelas Tingkat</span> <span className="text-gray-800">{selectedSiswa.kelas}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Sekolah Asal</span> <span className="text-gray-800">{selectedSiswa.sekolahAsal}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Wali / Orang Tua</span> <span className="text-gray-800">{selectedSiswa.namaOrangTuaWali}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">No HP Kontak</span> <span className="text-gray-800 font-mono font-medium">{selectedSiswa.noHpOrangTua}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Alamat Domisili</span> <span className="text-gray-800">{selectedSiswa.alamatDomisili}</span></p>
-              <p className="pt-2"><span className="font-bold text-gray-500 block text-xs uppercase">Jadwal & Mata Pelajaran</span> <span className="text-gray-800 font-medium">{selectedSiswa.mapel} ({selectedSiswa.hari} / {selectedSiswa.jam} WIB)</span></p>
-              <p className="pt-2 flex items-center justify-between"><span className="font-bold text-gray-500 text-xs uppercase">Status Pembayaran</span> <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedSiswa.pembayaran === "LUNAS" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{selectedSiswa.pembayaran}</span></p>
-              <p className="pt-2 font-medium italic text-gray-700 bg-gray-50 p-2.5 rounded-xl border"><strong>Catatan:</strong> {selectedSiswa.catatanAnak || "Tidak ada catatan khusus."}</p>
+              
+              <p className="pt-1">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Nama Lengkap</span>
+                <span className="text-gray-900 font-semibold text-base">{selectedSiswa.namaLengkap}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Nama Panggilan</span>
+                <span className="text-gray-800">{selectedSiswa.namaPanggilan}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Kelas Tingkat</span>
+                <span className="text-gray-800">{formatKelas(selectedSiswa.kelas)}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Sekolah Asal</span>
+                <span className="text-gray-800">{selectedSiswa.sekolahAsal}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Wali / Orang Tua</span>
+                <span className="text-gray-800">{selectedSiswa.namaOrangTuaWali}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Pekerjaan Ayah</span>
+                <span className="text-gray-800">{selectedSiswa.pekerjaanAyah || "-"}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Pekerjaan Ibu</span>
+                <span className="text-gray-800">{selectedSiswa.pekerjaanIbu || "-"}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">No HP Kontak</span>
+                <span className="text-gray-800 font-mono font-medium">{selectedSiswa.noHpOrangTua}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Alamat Domisili</span>
+                <span className="text-gray-800">{selectedSiswa.alamatDomisili}</span>
+              </p>
+
+              <p className="pt-2">
+                <span className="font-bold text-gray-500 block text-xs uppercase">Jadwal & Mata Pelajaran</span>
+                <span className="text-gray-800 font-medium">
+                  {selectedSiswa.mapel} ({selectedSiswa.hari} / {selectedSiswa.jam} WIB)
+                </span>
+              </p>
+
+              <p className="pt-2 flex items-center justify-between">
+                <span className="font-bold text-gray-500 text-xs uppercase">Status Pembayaran</span>
+
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    selectedSiswa.pembayaran === "LUNAS"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {selectedSiswa.pembayaran}
+                </span>
+              </p>
+
+              <p className="pt-2 font-medium italic text-gray-700 bg-gray-50 p-2.5 rounded-xl border">
+                <strong>Catatan:</strong> {selectedSiswa.catatanAnak || "Tidak ada catatan khusus."}
+              </p>
             </div>
-            <button onClick={() => setModalType(null)} className="w-full mt-2 rounded-xl bg-gray-900 py-3 font-semibold text-white hover:bg-gray-800 transition">Tutup Detail</button>
+
+            <button
+              onClick={() => setModalType(null)}
+              className="w-full mt-2 rounded-xl bg-gray-900 py-3 font-semibold text-white hover:bg-gray-800 transition"
+            >
+              Tutup Detail
+            </button>
           </div>
         </div>
       )}
-            {/* POP-UP MODAL 1B: FORM EDIT DATA GURU (BARU) */}
+        {/* POP-UP MODAL 1B: FORM EDIT DATA GURU (BARU) */}
       {modalType === ("editGuru" as any) && selectedGuru && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <form onSubmit={handleEditGuru} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-gray-900 border">

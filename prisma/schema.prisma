@@ -26,7 +26,7 @@ model Murid {
   tanggalMasuk     DateTime  @default(now())
   namaLengkap      String
   namaPanggilan    String
-  kelas            String
+  kelas            Kelas
   sekolahAsal      String
   namaOrangTuaWali String
   pekerjaanAyah    String
@@ -79,4 +79,23 @@ enum StatusAbsensi {
   IZIN
   SAKIT
   ALPHA
+}
+
+enum Kelas {
+  CALISTUNG
+
+  SD_1
+  SD_2
+  SD_3
+  SD_4
+  SD_5
+  SD_6
+
+  SMP_1
+  SMP_2
+  SMP_3
+
+  SMK_1
+  SMK_2
+  SMK_3
 }

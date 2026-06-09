@@ -26,11 +26,11 @@ export default function DashboardPage() {
   const router = useRouter();
   
   // Ambil kendali pop-up kustom dan loading dari Context Global (Layout)
-  const { showNotification, showConfirmLogout, setIsLoadingGlobal } = useNotification();
+  const { showNotification, showConfirm, setIsLoadingGlobal } = useNotification();
 
   // State Navigasi & Menu
   const [menuAktif, setMenuAktif] = useState("Absensi Guru");
-  const [kelasAktif, setKelasAktif] = useState("Calistung");
+  const [kelasAktif, setKelasAktif] = useState("CALISTUNG");
   const [showKelas, setShowKelas] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
@@ -42,8 +42,17 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const kelasList = [
-    "Calistung", "SD 1", "SD 2", "SD 3", "SD 4", "SD 5", "SD 6",
-    "SMP 1", "SMP 2", "SMP 3", "SMK 1", "SMK 2", "SMK 3"
+    "CALISTUNG",
+    "SD_1",
+    "SD_2",
+    "SD_3",
+    "SD_4",
+    "SD_5",
+    "SD_6",
+    "SMP_1",
+    "SMP_2",
+    "SMP_3",
+    "SMK_1",
   ];
 
   // 1. Ambil Sesi Login Pengguna dengan Animasi Loading Global terpusat
@@ -208,7 +217,7 @@ export default function DashboardPage() {
 
   const triggerLogoutValidation = () => {
     setShowProfileMenu(false);
-    showConfirmLogout(
+    showConfirm(
       "Konfirmasi Keluar",
       "Apakah Anda yakin ingin keluar dari sistem Aksara Bimbel?",
       executeLogout
@@ -222,7 +231,8 @@ export default function DashboardPage() {
     window.location.reload();
   };
 
-  const muridPerKelas = allMurid.filter((m) => m.kelas.toLowerCase() === kelasAktif.toLowerCase());
+  const normalizeKelas = (kelas: string) => {return kelas.replaceAll("_", " ").toLowerCase();};
+  const muridPerKelas = allMurid.filter((m) => normalizeKelas(m.kelas) === normalizeKelas(kelasAktif));
 
   if (!user) return null;
   return (
@@ -279,23 +289,20 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <button
               onClick={() => setMenuAktif("Absensi Guru")}
-              className={`w-full rounded-xl px-4 py-3 text-left transition ${
-                menuAktif === "Absensi Guru" ? "bg-[#D6B25E] text-[#0F3D8C]" : "hover:bg-[#1B4FA3]"
+              className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
+                menuAktif === "Absensi Guru"                         
+                ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
+                : "bg-[#174894] hover:bg-[#2157ad]"
               }`}
             >
               Absensi Guru
             </button>
 
-            <button
-              onClick={() => setShowKelas(!showKelas)}
-              className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition hover:bg-[#1B4FA3]"
-            >
-              <span>Pilihan Kelas</span>
-              <span>{showKelas ? "▲" : "▼"}</span>
-            </button>
+            <div className="mt-4 space-y-2">
+                <p className="px-2 text-xs font-bold uppercase tracking-wider text-blue-200">
+                  Daftar Kelas
+                </p>
 
-            {showKelas && (
-              <div className="ml-3 max-h-60 overflow-y-auto space-y-1 pr-1">
                 {kelasList.map((kelas) => (
                   <button
                     key={kelas}
@@ -303,16 +310,30 @@ export default function DashboardPage() {
                       setKelasAktif(kelas);
                       setMenuAktif("Absensi Siswa");
                     }}
-                    className={`w-full rounded-lg px-4 py-2 text-left text-sm transition ${
+                    className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
                       menuAktif === "Absensi Siswa" && kelasAktif === kelas
-                        ? "bg-[#D6B25E] text-[#0F3D8C]" : "hover:bg-[#1B4FA3]"
+                        ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
+                        : "bg-[#174894] hover:bg-[#2157ad]"
                     }`}
                   >
-                    {kelas}
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          menuAktif === "Absensi Siswa" && kelasAktif === kelas
+                            ? "bg-[#0F3D8C]"
+                            : "bg-blue-200"
+                        }`}
+                      />
+
+                      <span className="font-medium">{kelas.replaceAll("_", " ")}</span>
+                    </div>
+
+                    <span className="text-xs opacity-70 group-hover:translate-x-1 transition">
+                      →
+                    </span>
                   </button>
                 ))}
               </div>
-            )}
           </div>
         </aside>
 
@@ -385,7 +406,7 @@ export default function DashboardPage() {
           {menuAktif === "Absensi Siswa" && (
             <>
               <div className="mb-6">
-                <h2 className="text-3xl font-bold text-[#0F3D8C]">Absensi Kelas {kelasAktif}</h2>
+                <h2 className="text-3xl font-bold text-[#0F3D8C]">Absensi Kelas {kelasAktif.replaceAll("_", " ")}</h2>
                 <p className="mt-1 text-gray-500">Pengajar: <span className="font-semibold text-blue-700">{user.nama}</span></p>
               </div>
 
@@ -403,7 +424,7 @@ export default function DashboardPage() {
                     {muridPerKelas.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="px-5 py-12 text-center text-gray-400">
-                          Tidak ada data murid terdaftar untuk <span className="font-bold text-red-500">Kelas {kelasAktif}</span> di database.
+                          Tidak ada data murid terdaftar untuk <span className="font-bold text-red-500">Kelas {kelasAktif.replaceAll("_", " ")}</span> di database.
                         </td>
                       </tr>
                     ) : (
