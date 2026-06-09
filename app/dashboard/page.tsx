@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext"; // Menggunakan Context baru
+import { clearSession } from "@/lib/session";
 
 interface UserProfile {
   nama: string;
@@ -225,9 +226,7 @@ export default function DashboardPage() {
   };
 
   const executeLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    clearSession();
     window.location.reload();
   };
 

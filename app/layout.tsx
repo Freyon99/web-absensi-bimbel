@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 // 1. Impor NotificationProvider dari folder context yang Anda buat
 import { NotificationProvider } from "@/context/NotificationContext";
+import { SessionTimeoutManager } from "@/context/SessionTimeoutManager";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body className={poppins.className}>
         {/* 2. Bungkus {children} dengan NotificationProvider */}
         <NotificationProvider>
+          <SessionTimeoutManager />
           {children}
         </NotificationProvider>
       </body>

@@ -3,11 +3,11 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { clearSession, touchSession } from "@/lib/session";
 
 export default function Home() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState(""); 
+  const [password, setPassword] = useState(""); 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -40,8 +40,7 @@ export default function Home() {
     // Skenario Timeout 2 Jam: Jika token di cookie sudah dihapus otomatis oleh browser 
     // tetapi di localStorage masih tersimpan data lama, lakukan pembersihan total.
     if (!hasCookieToken && (savedUser || savedToken)) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearSession();
       setUserSession(null);
       window.location.reload();
       return;
@@ -75,10 +74,6 @@ export default function Home() {
       showPopup("Peringatan", "Password wajib diisi", false);
       return;
     }
-    if (!role) {
-      showPopup("Peringatan", "Role wajib dipilih", false);
-      return;
-    }
 
     setIsLoading(true);
 
@@ -96,11 +91,6 @@ export default function Home() {
         throw new Error(data.message || "Gagal masuk");
       }
 
-      // Validasi kesesuaian role pilihan dengan database
-      if (data.user.peran.toLowerCase() !== role.toLowerCase()) {
-        throw new Error(`Akun Anda terdaftar sebagai ${data.user.peran}, bukan ${role}`);
-      }
-
       // 2. Memicu pop-up selamat datang dinamis dengan nama user asli dari DB
       showPopup("Berhasil", `Selamat datang kembali, ${data.user.nama}!`, true);
 
@@ -109,7 +99,7 @@ export default function Home() {
       localStorage.setItem("user", JSON.stringify(data.user));
       
       // 4. Set Cookie Native Max-Age (Browser akan otomatis menghapus sesi ini tepat setelah 2 jam)
-      document.cookie = `token=${data.token}; path=/; max-age=7200; SameSite=Strict;`;
+      touchSession();
       
       setUserSession(data.user);
 
@@ -121,7 +111,7 @@ export default function Home() {
           router.push("/dashboard");
         }
         router.refresh();
-      }, 1500);
+      }, 1200);
 
     } catch (err: any) {
       showPopup("Login Gagal", err.message, false);
@@ -143,9 +133,7 @@ export default function Home() {
 
   // Eksekusi pembersihan total sesi (Hapus data & Cookie)
   const executeLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+    clearSession();
     setUserSession(null);
     setNotification({ show: false, title: "", message: "", isSuccess: false, isConfirmLogout: false });
     
@@ -270,21 +258,6 @@ export default function Home() {
             <button className="text-[#0F3D8C] hover:underline">
               Forgot Password
             </button>
-          </div>
-
-          <div className="mb-5 sm:mb-6">
-            <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C]">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-xl border border-[#D6B25E] px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-zinc-700 bg-white outline-none transition focus:border-[#0F3D8C]"
-            >
-              <option value="">Pilih Role</option>
-              <option value="guru">Guru</option>
-              <option value="admin">Admin</option>
-            </select>
           </div>
 
           <button

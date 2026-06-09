@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
+import { clearSession } from "@/lib/session";
 
 interface UserProfile {
   id: string;
@@ -44,15 +45,19 @@ export default function AdminPage() {
   
   const { showNotification, showConfirm, setIsLoadingGlobal } = useNotification();
 
-  const [menuAktif, setMenuAktif] = useState("Data Siswa");
+  const [menuAktif, setMenuAktif] = useState("Dashboard");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dashboardSearch, setDashboardSearch] = useState("");
+  const [activeSiswaKelasFilter, setActiveSiswaKelasFilter] = useState("");
+  const [activeSiswaPembayaranFilter, setActiveSiswaPembayaranFilter] = useState("");
+  const [activeAbsensiGuruFilter, setActiveAbsensiGuruFilter] = useState("");
 
   const [siswaList, setSiswaList] = useState<Murid[]>([]);
   const [guruList, setGuruList] = useState<UserProfile[]>([]);
   const [absenGuruList, setAbsenGuruList] = useState<LogAbsenGuru[]>([]);
 
-  const [modalType, setModalType] = useState<"tambahGuru" | "tambahSiswa" | "editSiswa" | "detailSiswa" | null>(null);
+  const [modalType, setModalType] = useState<"tambahGuru" | "editGuru" | "tambahSiswa" | "editSiswa" | "detailSiswa" | null>(null);
   const [selectedSiswa, setSelectedSiswa] = useState<Murid | null>(null);
   const [selectedGuru, setSelectedGuru] = useState<UserProfile | null>(null); // Tambahkan state guru terpilih
 
@@ -90,7 +95,7 @@ export default function AdminPage() {
     };
 
     checkSession();
-  }, []);
+  }, [router, setIsLoadingGlobal]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -102,26 +107,26 @@ export default function AdminPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchDataSiswa = async () => {
+  async function fetchDataSiswa() {
     const token = localStorage.getItem("token");
     const res = await fetch("/api/murid", { headers: { "Authorization": `Bearer ${token}` } });
     if (res.ok) setSiswaList(await res.json());
-  };
+  }
 
-  const fetchDataGuru = async () => {
+  async function fetchDataGuru() {
     const token = localStorage.getItem("token");
     const res = await fetch("/api/users", { headers: { "Authorization": `Bearer ${token}` } });
     if (res.ok) {
       const data = await res.json();
       setGuruList(data.filter((u: UserProfile) => u.peran === "GURU"));
     }
-  };
+  }
 
-  const fetchAbsensiGuru = async () => {
+  async function fetchAbsensiGuru() {
     const token = localStorage.getItem("token");
     const res = await fetch("/api/absensi-guru", { headers: { "Authorization": `Bearer ${token}` } });
     if (res.ok) setAbsenGuruList(await res.json());
-  };
+  }
 
   const handleTambahGuru = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,7 +156,7 @@ export default function AdminPage() {
       password: "", // Sengaja dikosongkan, diisi hanya jika ingin ganti password
       noHp: guru.noHp || "",
     });
-    setModalType("editGuru" as any); // Memicu modal edit guru muncul
+    setModalType("editGuru"); // Memicu modal edit guru muncul
   };
 
   // 2. Fungsi untuk mengirim data perubahan guru ke API backend (PUT)
@@ -181,7 +186,7 @@ export default function AdminPage() {
       } else {
         showNotification("Gagal", data.message || "Gagal memperbarui data guru", false);
       }
-    } catch (error) {
+    } catch {
       showNotification("Error", "Terjadi kesalahan jaringan", false);
     } finally {
       setIsLoadingGlobal(false);
@@ -265,15 +270,87 @@ export default function AdminPage() {
   };
 
   const executeLogout = () => {
-    localStorage.removeItem("token"); localStorage.removeItem("user");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    clearSession();
     window.location.reload();
   };
 
-  const filteredSiswa = siswaList.filter((s) => s.namaLengkap.toLowerCase().includes(searchQuery.toLowerCase()));
   const formatKelas = (kelas: string) => {
     return kelas.replace("_", " ")
   }
+
+  const resetDataFilters = () => {
+    setActiveSiswaKelasFilter("");
+    setActiveSiswaPembayaranFilter("");
+    setActiveAbsensiGuruFilter("");
+  };
+
+  const countByField = <T,>(items: T[], getKey: (item: T) => string | null | undefined) => {
+    return items.reduce<Record<string, number>>((acc, item) => {
+      const key = getKey(item)?.trim() || "Tidak Diisi";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  };
+
+  const toChartData = (data: Record<string, number>, limit = 8) => {
+    return Object.entries(data)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([label, value]) => ({ label, value }));
+  };
+
+  const siswaByKelas = toChartData(countByField(siswaList, (s) => formatKelas(s.kelas)));
+  const siswaByPembayaran = toChartData(countByField(siswaList, (s) => s.pembayaran), 4);
+  const absensiByGuru = toChartData(countByField(absenGuruList, (a) => a.guru?.nama || "Guru Terhapus"));
+  const totalAbsensiSelesai = absenGuruList.filter((a) => Boolean(a.waktuPulang)).length;
+  const maxSiswaKelas = Math.max(...siswaByKelas.map((item) => item.value), 1);
+  const maxAbsensiGuru = Math.max(...absensiByGuru.map((item) => item.value), 1);
+  const normalizedDashboardSearch = dashboardSearch.toLowerCase();
+  const dashboardSiswaResults = siswaList.filter((s) =>
+    [s.namaLengkap, s.namaPanggilan, s.kelas, s.sekolahAsal, s.noHpOrangTua]
+      .some((value) => value?.toLowerCase().includes(normalizedDashboardSearch))
+  );
+  const dashboardGuruResults = guruList.filter((g) =>
+    [g.nama, g.email, g.noHp]
+      .some((value) => value?.toLowerCase().includes(normalizedDashboardSearch))
+  );
+  const filteredSiswa = siswaList.filter((s) => {
+    const normalizedSearch = searchQuery.toLowerCase();
+    const kelasLabel = formatKelas(s.kelas);
+    const matchesSearch = [s.namaLengkap, s.namaPanggilan, kelasLabel, s.sekolahAsal, s.noHpOrangTua]
+      .some((value) => value?.toLowerCase().includes(normalizedSearch));
+    const matchesKelas = activeSiswaKelasFilter ? kelasLabel === activeSiswaKelasFilter : true;
+    const matchesPembayaran = activeSiswaPembayaranFilter ? s.pembayaran === activeSiswaPembayaranFilter : true;
+
+    return matchesSearch && matchesKelas && matchesPembayaran;
+  });
+  const filteredAbsensiGuru = activeAbsensiGuruFilter
+    ? absenGuruList.filter((item) => (item.guru?.nama || "Guru Terhapus") === activeAbsensiGuruFilter)
+    : absenGuruList;
+
+  const openSiswaByKelas = (kelas: string) => {
+    setSearchQuery("");
+    setActiveSiswaKelasFilter(kelas);
+    setActiveSiswaPembayaranFilter("");
+    setActiveAbsensiGuruFilter("");
+    setMenuAktif("Data Siswa");
+  };
+
+  const openSiswaByPembayaran = (pembayaran: string) => {
+    setSearchQuery("");
+    setActiveSiswaKelasFilter("");
+    setActiveSiswaPembayaranFilter(pembayaran);
+    setActiveAbsensiGuruFilter("");
+    setMenuAktif("Data Siswa");
+  };
+
+  const openAbsensiByGuru = (namaGuru: string) => {
+    setActiveSiswaKelasFilter("");
+    setActiveSiswaPembayaranFilter("");
+    setActiveAbsensiGuruFilter(namaGuru);
+    setMenuAktif("Absensi Guru");
+  };
+
   if (!user) return null;
   return (
     <div className="min-h-screen max-w-full flex flex-col bg-[#FFFDF8] overflow-hidden text-gray-900">
@@ -314,13 +391,208 @@ export default function AdminPage() {
         <aside className="w-64 bg-[#0F3D8C] p-5 text-white shrink-0 min-h-full">
           <h2 className="mb-4 text-lg font-bold">Menu Admin</h2>
           <div className="space-y-2">
-            {["Data Siswa", "Data Guru", "Absensi Guru", "Statistik Siswa", "Statistik Guru"].map((menu) => (
-              <button key={menu} onClick={() => setMenuAktif(menu)} className={`w-full rounded-xl px-4 py-3 text-left transition ${menuAktif === menu ? "bg-[#D6B25E] text-[#0F3D8C]" : "hover:bg-[#1B4FA3]"}`}>{menu}</button>
+            {["Dashboard", "Data Siswa", "Data Guru", "Absensi Guru",].map((menu) => (
+              <button
+                key={menu}
+                onClick={() => {
+                  resetDataFilters();
+                  setMenuAktif(menu);
+                }}
+                className={`w-full rounded-xl px-4 py-3 text-left transition ${menuAktif === menu ? "bg-[#D6B25E] text-[#0F3D8C]" : "hover:bg-[#1B4FA3]"}`}
+              >
+                {menu}
+              </button>
             ))}
           </div>
         </aside>
 
         <main className="flex-1 min-w-0 p-4 sm:p-8 bg-[#FFFDF8] overflow-y-auto">
+          {/* MENU AWAL: DASHBOARD STATISTIK */}
+          {menuAktif === "Dashboard" && (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-[#D6B25E]">Dashboard Admin</p>
+                  <h2 className="text-3xl font-bold text-[#0F3D8C]">Statistik Siswa & Guru</h2>
+                  <p className="mt-1 text-sm text-gray-500">Ringkasan ini otomatis mengikuti data terbaru dari database.</p>
+                </div>
+                <div className="w-full lg:max-w-md">
+                  <label className="mb-2 block text-sm font-semibold text-gray-700">Search siswa atau guru</label>
+                  <input
+                    type="text"
+                    placeholder="Cari nama, kelas, sekolah, email, atau no HP..."
+                    value={dashboardSearch}
+                    onChange={(e) => setDashboardSearch(e.target.value)}
+                    className="w-full rounded-xl border border-[#D6B25E] bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-[#0F3D8C] focus:ring-2 focus:ring-[#0F3D8C]/10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-blue-100 bg-white p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-500">Total Siswa</p>
+                  <p className="mt-2 text-3xl font-bold text-[#0F3D8C]">{siswaList.length}</p>
+                  <p className="mt-1 text-xs text-gray-400">Anak terdaftar</p>
+                </div>
+                <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-500">Total Guru</p>
+                  <p className="mt-2 text-3xl font-bold text-emerald-700">{guruList.length}</p>
+                  <p className="mt-1 text-xs text-gray-400">Pengajar aktif</p>
+                </div>
+                <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-500">Absensi Guru</p>
+                  <p className="mt-2 text-3xl font-bold text-amber-700">{absenGuruList.length}</p>
+                  <p className="mt-1 text-xs text-gray-400">{totalAbsensiSelesai} sudah absen pulang</p>
+                </div>
+                <div className="rounded-xl border border-rose-100 bg-white p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-500">Pembayaran Lunas</p>
+                  <p className="mt-2 text-3xl font-bold text-rose-700">{siswaList.filter((s) => s.pembayaran === "LUNAS").length}</p>
+                  <p className="mt-1 text-xs text-gray-400">Dari total siswa</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-[#0F3D8C]">Grafik Siswa per Kelas</h3>
+                      <p className="text-sm text-gray-500">Distribusi siswa berdasarkan tingkat kelas.</p>
+                    </div>
+                  </div>
+                  <div className="h-64">
+                    {siswaByKelas.length === 0 ? (
+                      <p className="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-400">Belum ada data siswa</p>
+                    ) : (
+                      <div className="flex h-full items-end gap-3 overflow-x-auto border-b border-l border-gray-100 px-2 pb-2">
+                        {siswaByKelas.map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => openSiswaByKelas(item.label)}
+                            title={`Lihat data siswa kelas ${item.label}`}
+                            className="group flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-2 rounded-lg px-1 py-2 transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-[#0F3D8C]/20"
+                          >
+                            <span className="text-xs font-bold text-gray-800">{item.value}</span>
+                            <span className="flex h-40 w-full items-end justify-center">
+                              <span
+                                className="w-full max-w-12 rounded-t-lg bg-[#0F3D8C] transition-all group-hover:bg-[#0B2E69]"
+                                style={{ height: `${Math.max((item.value / maxSiswaKelas) * 100, 12)}%` }}
+                              />
+                            </span>
+                            <span className="w-full truncate text-center text-xs font-semibold text-gray-600">{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <div className="mb-5">
+                    <h3 className="text-lg font-bold text-[#0F3D8C]">Grafik Aktivitas Guru</h3>
+                    <p className="text-sm text-gray-500">Jumlah log absensi yang tercatat per guru.</p>
+                  </div>
+                  <div className="h-64">
+                    {absensiByGuru.length === 0 ? (
+                      <p className="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-400">Belum ada log absensi guru</p>
+                    ) : (
+                      <div className="flex h-full items-end gap-3 overflow-x-auto border-b border-l border-gray-100 px-2 pb-2">
+                        {absensiByGuru.map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => openAbsensiByGuru(item.label)}
+                            title={`Lihat absensi ${item.label}`}
+                            className="group flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-2 rounded-lg px-1 py-2 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                          >
+                            <span className="text-xs font-bold text-gray-800">{item.value}</span>
+                            <span className="flex h-40 w-full items-end justify-center">
+                              <span
+                                className="w-full max-w-12 rounded-t-lg bg-emerald-600 transition-all group-hover:bg-emerald-700"
+                                style={{ height: `${Math.max((item.value / maxAbsensiGuru) * 100, 12)}%` }}
+                              />
+                            </span>
+                            <span className="w-full truncate text-center text-xs font-semibold text-gray-600">{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <div className="mb-5">
+                    <h3 className="text-lg font-bold text-[#0F3D8C]">Hasil Search</h3>
+                    <p className="text-sm text-gray-500">Menampilkan siswa dan guru yang cocok dengan kata kunci.</p>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <p className="mb-3 text-sm font-bold text-gray-700">Siswa ({dashboardSiswaResults.length})</p>
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-100">
+                        {dashboardSiswaResults.slice(0, 8).map((item) => (
+                          <button key={item.id} onClick={() => openDetailModal(item)} className="block w-full border-b border-gray-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-blue-50">
+                            <span className="block font-semibold text-gray-900">{item.namaLengkap}</span>
+                            <span className="text-xs text-gray-500">{formatKelas(item.kelas)} - {item.sekolahAsal}</span>
+                          </button>
+                        ))}
+                        {dashboardSiswaResults.length === 0 && (
+                          <p className="px-4 py-6 text-center text-sm text-gray-400">Tidak ada siswa ditemukan</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-3 text-sm font-bold text-gray-700">Guru ({dashboardGuruResults.length})</p>
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-100">
+                        {dashboardGuruResults.slice(0, 8).map((item) => (
+                          <div key={item.id} className="border-b border-gray-100 px-4 py-3 last:border-b-0">
+                            <p className="font-semibold text-gray-900">{item.nama}</p>
+                            <p className="text-xs text-gray-500">{item.email}</p>
+                            <p className="text-xs text-gray-500">{item.noHp || "-"}</p>
+                          </div>
+                        ))}
+                        {dashboardGuruResults.length === 0 && (
+                          <p className="px-4 py-6 text-center text-sm text-gray-400">Tidak ada guru ditemukan</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-[#0F3D8C]">Status Pembayaran</h3>
+                  <div className="mt-5 h-56">
+                    {siswaByPembayaran.length === 0 ? (
+                      <p className="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-400">Belum ada data pembayaran</p>
+                    ) : (
+                      <div className="flex h-full items-end gap-4 border-b border-l border-gray-100 px-2 pb-2">
+                        {siswaByPembayaran.map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => openSiswaByPembayaran(item.label)}
+                            title={`Lihat data siswa dengan pembayaran ${item.label}`}
+                            className="group flex h-full min-w-24 flex-1 flex-col items-center justify-end gap-2 rounded-lg px-2 py-2 transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-[#D6B25E]/30"
+                          >
+                            <span className="text-xs font-bold text-gray-800">{item.value}</span>
+                            <span className="flex h-32 w-full items-end justify-center">
+                              <span
+                                className="w-full max-w-16 rounded-t-lg bg-[#D6B25E] transition-all group-hover:bg-amber-600"
+                                style={{ height: `${Math.max((item.value / Math.max(siswaList.length, 1)) * 100, 12)}%` }}
+                              />
+                            </span>
+                            <span className="w-full truncate text-center text-xs font-semibold text-gray-600">{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* MENU 1: DATA SISWA */}
           {menuAktif === "Data Siswa" && (
             <div className="rounded-2xl bg-white p-6 shadow w-full">
@@ -328,6 +600,20 @@ export default function AdminPage() {
                 <div>
                   <h3 className="text-2xl font-bold text-[#0F3D8C]">Data Siswa</h3>
                   <p className="text-sm text-gray-500">Kelola dan pantau seluruh murid master Aksara Bimbel.</p>
+                  {(activeSiswaKelasFilter || activeSiswaPembayaranFilter) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-[#0F3D8C]">
+                        Filter: {activeSiswaKelasFilter || activeSiswaPembayaranFilter}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={resetDataFilters}
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                      >
+                        Tampilkan semua
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input type="text" placeholder="Cari nama siswa..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="rounded-xl border border-[#D6B25E] px-4 py-2 text-sm text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" />
@@ -360,20 +646,26 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSiswa.map((item, index) => (
-                      <tr key={item.id} className="border-t hover:bg-gray-50 transition">
-                        <td className="px-4 py-3 text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3 text-gray-600">{new Date(item.tanggalMasuk).toLocaleDateString("id-ID")}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-800">{item.namaLengkap}</td>
-                        <td className="px-4 py-3 text-gray-600">{item.namaPanggilan}</td>
-                        <td className="px-4 py-3 text-gray-600">{formatKelas(item.kelas)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <button onClick={() => openDetailModal(item)} className="mr-2 text-blue-600 hover:underline">Detail</button>
-                          <button onClick={() => openEditModal(item)} className="mr-2 text-yellow-600 hover:underline">Edit</button>
-                          <button onClick={() => handleHapusSiswa(item.id, item.namaLengkap)} className="text-red-500 hover:underline">Delete</button>
-                        </td>
+                    {filteredSiswa.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-400">Tidak ada data siswa yang cocok</td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredSiswa.map((item, index) => (
+                        <tr key={item.id} className="border-t hover:bg-gray-50 transition">
+                          <td className="px-4 py-3 text-gray-600">{index + 1}</td>
+                          <td className="px-4 py-3 text-gray-600">{new Date(item.tanggalMasuk).toLocaleDateString("id-ID")}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-800">{item.namaLengkap}</td>
+                          <td className="px-4 py-3 text-gray-600">{item.namaPanggilan}</td>
+                          <td className="px-4 py-3 text-gray-600">{formatKelas(item.kelas)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <button onClick={() => openDetailModal(item)} className="mr-2 text-blue-600 hover:underline">Detail</button>
+                            <button onClick={() => openEditModal(item)} className="mr-2 text-yellow-600 hover:underline">Edit</button>
+                            <button onClick={() => handleHapusSiswa(item.id, item.namaLengkap)} className="text-red-500 hover:underline">Delete</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -470,6 +762,20 @@ export default function AdminPage() {
               <div className="mb-4">
                 <h3 className="text-2xl font-bold text-[#0F3D8C]">Monitoring Absensi Guru</h3>
                 <p className="text-sm text-gray-500">Log kehadiran jam datang dan jam pulang seluruh tim pengajar.</p>
+                {activeAbsensiGuruFilter && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      Filter: {activeAbsensiGuruFilter}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={resetDataFilters}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Tampilkan semua
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="w-full overflow-x-auto rounded-xl border border-[#D6B25E] bg-white">
                 <table className="w-full min-w-max text-sm table-auto">
@@ -482,37 +788,29 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {absenGuruList.map((item) => {
-                      const dateObjMasuk = new Date(item.waktuMasuk);
-                      const dateObjPulang = item.waktuPulang ? new Date(item.waktuPulang) : null;
-                      return (
-                        <tr key={item.id} className="border-t">
-                          <td className="px-4 py-3 text-gray-700 font-semibold">{item.guru?.nama || "Guru Terhapus"}</td>
-                          <td className="px-4 py-3 text-gray-600">{dateObjMasuk.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</td>
-                          <td className="px-4 py-3 text-gray-600 font-bold">{dateObjMasuk.toLocaleTimeString("id-ID")}</td>
-                          <td className="px-4 py-3 text-gray-600 font-bold">
-                            {dateObjPulang ? dateObjPulang.toLocaleTimeString("id-ID") : "Belum Absen Pulang"}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {filteredAbsensiGuru.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-400">Tidak ada log absensi yang cocok</td>
+                      </tr>
+                    ) : (
+                      filteredAbsensiGuru.map((item) => {
+                        const dateObjMasuk = new Date(item.waktuMasuk);
+                        const dateObjPulang = item.waktuPulang ? new Date(item.waktuPulang) : null;
+                        return (
+                          <tr key={item.id} className="border-t">
+                            <td className="px-4 py-3 text-gray-700 font-semibold">{item.guru?.nama || "Guru Terhapus"}</td>
+                            <td className="px-4 py-3 text-gray-600">{dateObjMasuk.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</td>
+                            <td className="px-4 py-3 text-gray-600 font-bold">{dateObjMasuk.toLocaleTimeString("id-ID")}</td>
+                            <td className="px-4 py-3 text-gray-600 font-bold">
+                              {dateObjPulang ? dateObjPulang.toLocaleTimeString("id-ID") : "Belum Absen Pulang"}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
-
-          {/* MENU 4 & 5: REKAP STATISTIK */}
-          {menuAktif === "Statistik Siswa" && (
-            <div className="p-6 bg-white rounded-2xl border border-gray-100 text-gray-800">
-              <h4 className="text-lg font-bold text-[#0F3D8C] mb-2">Statistik Murid</h4>
-              <p className="text-sm text-gray-500">Total Siswa Terdaftar: <span className="font-bold text-gray-900">{siswaList.length} Anak</span></p>
-            </div>
-          )}
-          {menuAktif === "Statistik Guru" && (
-            <div className="p-6 bg-white rounded-2xl border border-gray-100 text-gray-800">
-              <h4 className="text-lg font-bold text-[#0F3D8C] mb-2">Statistik Pengajar</h4>
-              <p className="text-sm text-gray-500">Total Guru Bimbel: <span className="font-bold text-gray-900">{guruList.length} Orang</span></p>
             </div>
           )}
         </main>
@@ -726,7 +1024,7 @@ export default function AdminPage() {
         </div>
       )}
         {/* POP-UP MODAL 1B: FORM EDIT DATA GURU (BARU) */}
-      {modalType === ("editGuru" as any) && selectedGuru && (
+      {modalType === "editGuru" && selectedGuru && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <form onSubmit={handleEditGuru} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-gray-900 border">
             <h3 className="text-xl font-bold text-[#0F3D8C]">Edit Informasi Pengajar</h3>
