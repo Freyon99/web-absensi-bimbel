@@ -41,6 +41,17 @@ export async function POST(req: Request) {
     const { payload } = await jwtVerify(token, secret)
 
     // =========================
+    // KUNCI: HANYA ADMIN yang boleh menambah data murid
+    // =========================
+    const userRole = payload.peran || payload.role
+    if (userRole !== "ADMIN") {
+      return Response.json(
+        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
+        { status: 403 }
+      )
+    }
+
+    // =========================
     // AMBIL BODY
     // =========================
     const body = await req.json()
@@ -104,8 +115,24 @@ export async function POST(req: Request) {
 // =========================
 // AMBIL SEMUA MURID
 // =========================
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    // =========================
+    // WAJIB LOGIN: data murid hanya untuk pengguna terautentikasi
+    // =========================
+    const authHeader = req.headers.get("authorization")
+
+    if (!authHeader) {
+      return Response.json(
+        { message: "Token tidak ditemukan" },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.split(" ")[1]
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
+    await jwtVerify(token, secret)
+
     const semuaMurid = await prisma.murid.findMany({
       orderBy: {
         tanggalMasuk: "desc",

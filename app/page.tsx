@@ -144,21 +144,32 @@ export default function Home() {
   return (
     <div className="relative flex min-h-dvh flex-col justify-between overflow-x-hidden bg-[#FFFDF8]">
       
-      {/* Background Gelombang Responsif */}
-      <div
-        className="absolute inset-0 z-0 bg-[#F6E7B5]"
-        style={{
-          clipPath: "polygon(0 60%, 100% 40%, 100% 100%, 0% 100%)",
-        }}
-      />
+      {/* Latar dekoratif: gelombang lembut (murni visual) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        {/* Background Gelombang Responsif */}
+        <div
+          className="absolute inset-0 bg-[#F6E7B5] animate-drift"
+          style={{
+            clipPath: "polygon(0 60%, 100% 40%, 100% 100%, 0% 100%)",
+          }}
+        />
+        {/* Lapisan gelombang kedua untuk kesan kedalaman */}
+        <div
+          className="absolute inset-0 bg-[#D6B25E]/20 animate-drift"
+          style={{
+            clipPath: "polygon(0 74%, 100% 58%, 100% 100%, 0% 100%)",
+            animationDelay: "-7s",
+          }}
+        />
+      </div>
 
       {/* TOMBOL PROFILE SETTING (Pojok Kanan Atas - Muncul Otomatis Jika Ada Sesi Aktif) */}
       {userSession && (
-        <div className="absolute right-4 top-4 z-30 sm:right-6 sm:top-6">
+        <div className="absolute right-4 top-4 z-30 sm:right-6 sm:top-6 animate-fade-in">
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3D8C] text-white shadow-md transition hover:bg-[#0B2E69] active:scale-95"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3D8C] text-white shadow-md transition duration-300 hover:scale-105 hover:bg-[#0B2E69] active:scale-95"
             >
               {/* Optional chaining yang aman dari crash */}
               <span className="font-semibold uppercase">
@@ -168,20 +179,20 @@ export default function Home() {
 
             {/* Dropdown Menu Kustom */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl bg-white p-2 shadow-2xl border border-gray-100 z-50 animate-fade-in">
+              <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl bg-white p-2 shadow-2xl border border-gray-100 z-50 animate-scale-in">
                 <div className="border-b border-gray-100 px-3 py-2 text-left">
                   <p className="text-sm font-bold text-gray-900 truncate">{userSession.nama}</p>
                   <p className="text-xs text-gray-400 capitalize">{userSession.peran.toLowerCase()}</p>
                 </div>
                 <button 
                   onClick={() => alert("Fitur pengaturan profil segera hadir!")}
-                  className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Profile Settings
                 </button>
                 <button
                   onClick={triggerLogoutValidation}
-                  className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                 >
                   Logout
                 </button>
@@ -196,7 +207,13 @@ export default function Home() {
         
         {/* Kontainer Logo & Judul */}
         <div className="flex flex-col items-center text-center">
-          <div className="relative h-28 w-28 sm:h-36 sm:w-36 md:h-45 md:w-45 mb-2 sm:mb-4">
+          <div
+            className="relative h-28 w-28 sm:h-36 sm:w-36 md:h-45 md:w-45 mb-2 sm:mb-4"
+            style={{
+              animation:
+                "fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both, float-soft 6s ease-in-out 0.8s infinite",
+            }}
+          >
             <Image
               src="/logo.png"
               alt="Aksara Bimbel"
@@ -207,20 +224,23 @@ export default function Home() {
             />
           </div>
 
-          <h1 className="text-3xl font-bold tracking-wide text-[#0F3D8C] sm:text-4xl md:text-5xl">
+          <h1 className="text-3xl font-bold tracking-wide text-[#0F3D8C] sm:text-4xl md:text-5xl animate-fade-up" style={{ animationDelay: "0.15s" }}>
             Aksara Bimbel
           </h1>
 
-          <p className="mt-1 sm:mt-3 text-xs sm:text-sm text-[#7A7A7A]">
+          <p className="mt-1 sm:mt-3 text-xs sm:text-sm text-[#7A7A7A] animate-fade-up" style={{ animationDelay: "0.25s" }}>
             Belajar Asik Bersama Aksara
           </p>
         </div>
 
         {/* Card Input Form */}
-        <div className="mt-6 sm:mt-10 w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-8 shadow-xl sm:shadow-2xl">
+        <div
+          className="mt-6 sm:mt-10 w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-8 shadow-xl sm:shadow-2xl transition-shadow duration-300 animate-fade-up hover:shadow-[0_24px_60px_-15px_rgba(15,61,140,0.35)]"
+          style={{ animationDelay: "0.35s" }}
+        >
           
-          <div className="mb-4 sm:mb-5">
-            <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C]">
+          <div className="mb-4 sm:mb-5 group animate-fade-up" style={{ animationDelay: "0.45s" }}>
+            <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C] transition-colors duration-200 group-focus-within:text-[#0B2E69]">
               Email / Username
             </label>
             <input
@@ -228,12 +248,12 @@ export default function Home() {
               placeholder="Masukkan email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-[#D6B25E] px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-gray-900 bg-white outline-none transition focus:border-[#0F3D8C]"
+              className="w-full rounded-xl border border-[#D6B25E] px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-gray-900 bg-white outline-none transition duration-200 hover:border-[#0F3D8C]/50 focus:border-[#0F3D8C] focus:ring-4 focus:ring-[#D6B25E]/25"
             />
           </div>
 
-          <div className="mb-3 sm:mb-4">
-            <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C]">
+          <div className="mb-3 sm:mb-4 group animate-fade-up" style={{ animationDelay: "0.55s" }}>
+            <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C] transition-colors duration-200 group-focus-within:text-[#0B2E69]">
               Password
             </label>
             <div className="relative">
@@ -242,42 +262,67 @@ export default function Home() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-[#D6B25E] px-3 py-2.5 sm:px-4 sm:py-3 pr-12 sm:pr-14 text-sm text-gray-900 bg-white outline-none transition focus:border-[#0F3D8C]"
+                className="w-full rounded-xl border border-[#D6B25E] px-3 py-2.5 sm:px-4 sm:py-3 pr-12 sm:pr-14 text-sm text-gray-900 bg-white outline-none transition duration-200 hover:border-[#0F3D8C]/50 focus:border-[#0F3D8C] focus:ring-4 focus:ring-[#D6B25E]/25"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-[#0F3D8C] font-medium"
+                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-[#0F3D8C] font-medium transition-transform duration-200 hover:scale-110 active:scale-90"
               >
-                {showPassword ? "Hide" : "Show"}
+                <span key={showPassword ? "hide" : "show"} className="inline-block animate-fade-in">
+                  {showPassword ? "Hide" : "Show"}
+                </span>
               </button>
             </div>
           </div>
 
-          <div className="mb-4 sm:mb-5 flex justify-end text-xs sm:text-sm">
-            <button className="text-[#0F3D8C] hover:underline">
+          <div className="mb-4 sm:mb-5 flex justify-end text-xs sm:text-sm animate-fade-up" style={{ animationDelay: "0.65s" }}>
+            <button className="inline-block text-[#0F3D8C] transition-transform duration-200 hover:translate-x-0.5 hover:underline">
               Forgot Password
             </button>
           </div>
 
-          <button
-            onClick={handleLogin}
-            disabled={isLoading}
-            className="w-full rounded-xl bg-[#0F3D8C] py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white transition hover:bg-[#0B2E69] disabled:bg-gray-400 shadow-md active:scale-[0.98]"
-          >
-            {isLoading ? "Memproses..." : "Login"}
-          </button>
+          <div className="animate-fade-up" style={{ animationDelay: "0.75s" }}>
+            <button
+              onClick={handleLogin}
+              disabled={isLoading}
+              className="group relative w-full overflow-hidden rounded-xl bg-[#0F3D8C] py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0B2E69] hover:shadow-lg active:translate-y-0 active:scale-[0.98] disabled:translate-y-0 disabled:bg-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
+            >
+              {/* Sapuan cahaya saat hover */}
+              <span className="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
+              <span className="relative flex items-center justify-center gap-2">
+                {isLoading && (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                )}
+                {isLoading ? "Memproses..." : "Login"}
+              </span>
+            </button>
+          </div>
 
         </div>
       </div>
 
       {/* COMPONENT POP-UP MODAL KUSTOM MULTIFUNGSI */}
       {notification.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl border border-gray-100 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-fade-in">
+          <div
+            className={`w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl border border-gray-100 ${
+              notification.isSuccess || notification.isConfirmLogout
+                ? "animate-scale-in"
+                : "animate-pop-shake"
+            }`}
+          >
             
             {/* Simbol Ikon Status */}
-            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold ${notification.isSuccess ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
+            <div
+              className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold animate-scale-in ${
+                notification.isSuccess ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+              }`}
+              style={{ animationDelay: "0.1s" }}
+            >
               {notification.isSuccess ? "✓" : "!"}
             </div>
 

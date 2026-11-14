@@ -133,11 +133,13 @@ export default function AdminPage() {
     const tokenAdmin = localStorage.getItem("token");
     const res = await fetch("/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${tokenAdmin}`,
+      },
       body: JSON.stringify({ ...formGuru, peran: "GURU" }),
     });
     if (res.ok) {
-      localStorage.setItem("token", tokenAdmin!); 
       showNotification("Sukses", "Akun Guru baru berhasil didaftarkan!", true);
       setModalType(null);
       setFormGuru({ nama: "", email: "", password: "", noHp: "" });

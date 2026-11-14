@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
+import { jwtVerify } from "jose"
 import { z } from "zod"
 
 const registerSchema = z.object({
@@ -13,6 +14,36 @@ const registerSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // =========================
+    // KUNCI: HANYA ADMIN yang boleh mendaftarkan akun baru
+    // =========================
+    const authHeader = req.headers.get("authorization")
+
+    if (!authHeader) {
+      return Response.json({ message: "Token tidak ditemukan" }, { status: 401 })
+    }
+
+    const tokenPetugas = authHeader.split(" ")[1]
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
+
+    let payload: Record<string, unknown>
+    try {
+      payload = (await jwtVerify(tokenPetugas, secret)).payload as Record<string, unknown>
+    } catch {
+      return Response.json(
+        { message: "Token tidak valid atau kedaluwarsa" },
+        { status: 401 }
+      )
+    }
+
+    const peranPetugas = (payload.peran || payload.role) as string | undefined
+    if (peranPetugas !== "ADMIN") {
+      return Response.json(
+        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
+        { status: 403 }
+      )
+    }
+
     const body = await req.json()
     const data = registerSchema.parse(body)
 

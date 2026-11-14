@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useNotification } from "@/context/NotificationContext"; // Menggunakan Context baru
+import { useNotification } from "@/context/NotificationContext";
 import { clearSession } from "@/lib/session";
 
 interface UserProfile {
@@ -23,18 +23,55 @@ interface LogAbsenGuru {
   waktuPulang: string | null;
 }
 
+const STATUS_OPTIONS = [
+  { value: "HADIR", label: "Hadir", select: "border-emerald-300 text-emerald-700" },
+  { value: "IZIN", label: "Izin", select: "border-sky-300 text-sky-700" },
+  { value: "SAKIT", label: "Sakit", select: "border-amber-300 text-amber-700" },
+  { value: "ALPHA", label: "Alpha", select: "border-rose-300 text-rose-700" },
+];
+
+const STATUS_SELECT_STYLE = Object.fromEntries(
+  STATUS_OPTIONS.map((s) => [s.value, s.select])
+) as Record<string, string>;
+
+function getInitials(nama: string) {
+  return nama
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
+function formatJam(iso: string) {
+  return new Date(iso).toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatTanggalHariIni() {
+  return new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  
-  // Ambil kendali pop-up kustom dan loading dari Context Global (Layout)
+  const profileRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+
   const { showNotification, showConfirm, setIsLoadingGlobal } = useNotification();
 
   // State Navigasi & Menu
   const [menuAktif, setMenuAktif] = useState("Absensi Guru");
   const [kelasAktif, setKelasAktif] = useState("CALISTUNG");
-  const [showKelas, setShowKelas] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  
+  const [sidebarMobileBuka, setSidebarMobileBuka] = useState(false);
+
   // State Data Dinamis dari Database
   const [user, setUser] = useState<UserProfile | null>(null);
   const [allMurid, setAllMurid] = useState<Murid[]>([]);
@@ -56,10 +93,25 @@ export default function DashboardPage() {
     "SMK_1",
   ];
 
-  // 1. Ambil Sesi Login Pengguna dengan Animasi Loading Global terpusat
+  // Tutup dropdown profil & drawer mobile saat klik di luar
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (profileRef.current && !profileRef.current.contains(target)) {
+        setShowProfileMenu(false);
+      }
+      if (sidebarRef.current && !sidebarRef.current.contains(target)) {
+        setSidebarMobileBuka(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Ambil sesi login pengguna
   useEffect(() => {
     const checkGuruSession = async () => {
-      setIsLoadingGlobal(true); // Aktifkan loading spinner di tengah layar
+      setIsLoadingGlobal(true);
 
       const savedUser = localStorage.getItem("user");
       const savedToken = localStorage.getItem("token");
@@ -79,49 +131,43 @@ export default function DashboardPage() {
       }
 
       setUser(parsedUser);
-      // Tunggu data murid dan riwayat absen selesai diambil berbarengan
       await Promise.all([fetchDataMurid(), fetchRiwayatAbsenGuru()]);
-      
-      setIsLoadingGlobal(false); // Matikan loading spinner
+
+      setIsLoadingGlobal(false);
     };
 
     checkGuruSession();
   }, []);
 
-  // 2. AMBIL DATA MURID (GET /api/murid)
   const fetchDataMurid = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/murid", {
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setAllMurid(data);
+        setAllMurid(await res.json());
       }
     } catch (error) {
       console.error("Gagal memuat data murid:", error);
     }
   };
 
-  // 3. AMBIL DATA LOG ABSENSI GURU (GET /api/absensi-guru) — Membaca aman lewat Token Header
   const fetchRiwayatAbsenGuru = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/absensi-guru", {
         method: "GET",
-        headers: { "Authorization": `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setRiwayatAbsenGuru(data);
+        setRiwayatAbsenGuru(await res.json());
       }
     } catch (error) {
       console.error("Gagal memuat log absen guru:", error);
     }
   };
 
-  // 4. LOGIKA ABSEN MASUK GURU (POST /api/absensi-guru)
   const handleAbsenGuruDatang = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -130,14 +176,14 @@ export default function DashboardPage() {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/absensi-guru", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
       });
 
       const data = await res.json();
-      
+
       if (res.ok) {
         showNotification("Berhasil", "Absen datang Anda hari ini sukses dicatat!", true);
         fetchRiwayatAbsenGuru();
@@ -151,7 +197,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 5. LOGIKA ABSEN PULANG GURU (PUT /api/absensi-guru)
   const handleAbsenGuruPulang = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -160,16 +205,16 @@ export default function DashboardPage() {
       const token = localStorage.getItem("token");
       const res = await fetch("/api/absensi-guru", {
         method: "PUT",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
       });
 
       const data = await res.json();
       if (res.ok) {
         showNotification("Berhasil", "Absen pulang Anda hari ini sukses dicatat!", true);
-        fetchRiwayatAbsenGuru(); 
+        fetchRiwayatAbsenGuru();
       } else {
         showNotification("Gagal Absen", data.message || "Terjadi kesalahan", false);
       }
@@ -180,10 +225,9 @@ export default function DashboardPage() {
     }
   };
 
-  // 6. LOGIKA SIMPAN ABSENSI SISWA (POST /api/absensi) — Aman tanpa kirim guruId di body
   const handleSimpanAbsensiSiswa = async () => {
     if (!user || muridPerKelas.length === 0) return;
-    
+
     setIsLoading(true);
     let successCount = 0;
 
@@ -195,9 +239,9 @@ export default function DashboardPage() {
 
         const res = await fetch("/api/absensi", {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             muridId: murid.id,
@@ -208,7 +252,11 @@ export default function DashboardPage() {
         if (res.ok) successCount++;
       }
 
-      showNotification("Berhasil Disimpan", `Sukses mencatat ${successCount} data absensi siswa Kelas ${kelasAktif}!`, true);
+      showNotification(
+        "Berhasil Disimpan",
+        `Sukses mencatat ${successCount} data absensi siswa Kelas ${formatKelas(kelasAktif)}!`,
+        true
+      );
     } catch (error) {
       showNotification("Gagal Menyimpan", "Terjadi kegagalan sistem saat menyimpan absensi", false);
     } finally {
@@ -230,38 +278,198 @@ export default function DashboardPage() {
     window.location.reload();
   };
 
-  const normalizeKelas = (kelas: string) => {return kelas.replaceAll("_", " ").toLowerCase();};
-  const muridPerKelas = allMurid.filter((m) => normalizeKelas(m.kelas) === normalizeKelas(kelasAktif));
+  const formatKelas = (kelas: string) => kelas.replaceAll("_", " ");
+  const normalizeKelas = (kelas: string) => formatKelas(kelas).toLowerCase();
+  const muridPerKelas = allMurid.filter(
+    (m) => normalizeKelas(m.kelas) === normalizeKelas(kelasAktif)
+  );
 
-  if (!user) return null;
-  return (
+  // Isi status bawaan (ALPHA) supaya pilihan di tabel selalu konsisten dengan yang tersimpan
+  useEffect(() => {
+    setAbsenSiswa((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const m of muridPerKelas) {
+        if (!next[m.id]) {
+          next[m.id] = "ALPHA";
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kelasAktif, allMurid]);
+
+  const jumlahHadir = Object.values(absenSiswa).filter((s) => s === "HADIR").length;
+
+  const tandaiSemuaHadir = () => {
+    setAbsenSiswa((prev) => {
+      const next = { ...prev };
+      for (const m of muridPerKelas) next[m.id] = "HADIR";
+      return next;
+    });
+  };
+
+  const resetStatus = () => {
+    setAbsenSiswa((prev) => {
+      const next = { ...prev };
+      for (const m of muridPerKelas) next[m.id] = "ALPHA";
+      return next;
+    });
+  };
+
+  // Data turunan untuk ringkasan hari ini
+  const absenHariIni = riwayatAbsenGuru.find((log) => {
+    const d = new Date(log.waktuMasuk);
+    const now = new Date();
+    return (
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    );
+  });
+  const sudahAbsenDatang = Boolean(absenHariIni);
+  const sudahAbsenPulang = Boolean(absenHariIni?.waktuPulang);
+  const jamDatang = absenHariIni ? formatJam(absenHariIni.waktuMasuk) : null;
+  const jamPulang = absenHariIni?.waktuPulang ? formatJam(absenHariIni.waktuPulang) : null;
+
+  // Sidebar (dipakai di desktop & drawer mobile)
+  const menuSidebar = (
+    <div className="flex h-full flex-col">
+      <button
+        onClick={() => {
+          setMenuAktif("Absensi Guru");
+          setSidebarMobileBuka(false);
+        }}
+        className={`group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
+          menuAktif === "Absensi Guru"
+            ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
+            : "bg-[#174894] text-white hover:bg-[#2157ad]"
+        }`}
+      >
+        <svg
+          className={`h-5 w-5 ${menuAktif === "Absensi Guru" ? "text-[#0F3D8C]" : "text-blue-200"}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+        <span className="font-semibold">Absensi Guru</span>
+      </button>
+
+      <p className="mt-6 px-2 text-xs font-bold uppercase tracking-widest text-blue-200/70">
+        Daftar Kelas
+      </p>
+
+      <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto">
+        {kelasList.map((kelas) => {
+          const aktif = menuAktif === "Absensi Siswa" && kelasAktif === kelas;
+          const jumlah = allMurid.filter(
+            (m) => normalizeKelas(m.kelas) === normalizeKelas(kelas)
+          ).length;
+
+          return (
+            <button
+              key={kelas}
+              onClick={() => {
+                setKelasAktif(kelas);
+                setMenuAktif("Absensi Siswa");
+                setSidebarMobileBuka(false);
+              }}
+              className={`group flex w-full items-center justify-between rounded-2xl px-4 py-2.5 text-left transition-all duration-200 ${
+                aktif
+                  ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
+                  : "bg-[#174894] text-white hover:bg-[#2157ad]"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    aktif ? "bg-[#0F3D8C]" : "bg-blue-200"
+                  }`}
+                />
+                <span className="font-medium">{formatKelas(kelas)}</span>
+              </div>
+
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  aktif ? "bg-[#0F3D8C]/10 text-[#0F3D8C]" : "bg-white/10 text-blue-100"
+                }`}
+              >
+                {jumlah}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (!user) return null;  return (
     <div className="min-h-screen bg-[#FFFDF8] text-gray-900">
-      {/* Navbar Utama */}
-      <nav className="flex items-center justify-between bg-white px-8 py-4 shadow relative z-20">
-        <h1 className="text-xl font-bold text-[#0F3D8C]">Aksara Bimbel</h1>
+      {/* Navbar */}
+      <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 bg-white/90 px-4 py-3 backdrop-blur sm:px-8">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSidebarMobileBuka(true)}
+            aria-label="Buka menu"
+            className="rounded-lg border border-gray-200 p-2 text-gray-700 hover:bg-gray-50 lg:hidden"
+          >
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:block rounded-lg border border-[#D6B25E] px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50"> {user.nama}
+          <div>
+            <h1 className="text-lg font-bold text-[#0F3D8C] sm:text-xl">Aksara Bimbel</h1>
+            <p className="hidden text-xs text-gray-400 sm:block">Panel Pengajar</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-lg border border-[#D6B25E] bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 sm:block">
+            {user.nama}
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
+              aria-label="Menu profil"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0F3D8C] text-white shadow-md transition hover:bg-[#0B2E69] active:scale-95"
             >
-              <span className="font-semibold uppercase">{user.nama.charAt(0)}</span>
+              <span className="font-semibold uppercase">{getInitials(user.nama)}</span>
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl bg-white p-2 shadow-2xl border border-gray-100 z-50">
+              <div className="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right rounded-xl border border-gray-100 bg-white p-2 shadow-2xl">
                 <div className="border-b border-gray-100 px-3 py-2 text-left">
-                  <p className="text-sm font-bold text-gray-900 truncate">{user.nama}</p>
-                  <p className="text-xs text-gray-400 capitalize">{user.peran.toLowerCase()}</p>
+                  <p className="truncate text-sm font-bold text-gray-900">{user.nama}</p>
+                  <p className="text-xs capitalize text-gray-400">{user.peran.toLowerCase()}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    showNotification("Informasi Sistem", "Fitur pengaturan profil pengajar segera hadir!", true);
+                    showNotification(
+                      "Informasi Sistem",
+                      "Fitur pengaturan profil pengajar segera hadir!",
+                      true
+                    );
                   }}
                   className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                 >
@@ -279,117 +487,300 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Konten Utama Layout Dinamik */}
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="min-h-[calc(100vh-72px)] w-64 bg-[#0F3D8C] p-5 text-white shrink-0">
-          <h2 className="mb-4 text-lg font-bold">Menu Guru</h2>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => setMenuAktif("Absensi Guru")}
-              className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
-                menuAktif === "Absensi Guru"                         
-                ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
-                : "bg-[#174894] hover:bg-[#2157ad]"
-              }`}
-            >
-              Absensi Guru
-            </button>
-
-            <div className="mt-4 space-y-2">
-                <p className="px-2 text-xs font-bold uppercase tracking-wider text-blue-200">
-                  Daftar Kelas
+      {/* Drawer mobile */}
+      {sidebarMobileBuka && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSidebarMobileBuka(false)}
+          />
+          <aside
+            ref={sidebarRef}
+            className="absolute left-0 top-0 h-full w-72 bg-[#0F3D8C] p-5 text-white shadow-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-blue-200/70">
+                  Aksara Bimbel
                 </p>
-
-                {kelasList.map((kelas) => (
-                  <button
-                    key={kelas}
-                    onClick={() => {
-                      setKelasAktif(kelas);
-                      setMenuAktif("Absensi Siswa");
-                    }}
-                    className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
-                      menuAktif === "Absensi Siswa" && kelasAktif === kelas
-                        ? "bg-[#D6B25E] text-[#0F3D8C] shadow-lg"
-                        : "bg-[#174894] hover:bg-[#2157ad]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          menuAktif === "Absensi Siswa" && kelasAktif === kelas
-                            ? "bg-[#0F3D8C]"
-                            : "bg-blue-200"
-                        }`}
-                      />
-
-                      <span className="font-medium">{kelas.replaceAll("_", " ")}</span>
-                    </div>
-
-                    <span className="text-xs opacity-70 group-hover:translate-x-1 transition">
-                      →
-                    </span>
-                  </button>
-                ))}
+                <p className="text-lg font-bold">Menu Guru</p>
               </div>
-          </div>
+              <button
+                type="button"
+                onClick={() => setSidebarMobileBuka(false)}
+                aria-label="Tutup menu"
+                className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20"
+              >
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+
+            {menuSidebar}
+          </aside>
+        </div>
+      )}
+
+      {/* Layout utama */}
+      <div className="flex">
+        <aside className="sticky top-16 hidden h-[calc(100vh-64px)] w-64 shrink-0 bg-[#0F3D8C] p-5 text-white lg:block">
+          {menuSidebar}
         </aside>
 
-        {/* Area Panel Konten Utama */}
-        <main className="flex-1 p-8">
-          {/* TAMPILAN 1: ABSENSI GURU */}
+        <main className="min-w-0 flex-1 space-y-6 p-4 sm:p-8">
+          {/* HERO */}
+          <div className="overflow-hidden rounded-2xl bg-[#0F3D8C] p-6 text-white shadow-xl sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#D6B25E]">
+                  {formatTanggalHariIni()}
+                </p>
+                <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+                  Selamat datang, {user.nama.split(" ")[0]}!
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-blue-100">
+                  {sudahAbsenPulang
+                    ? "Anda sudah menyelesaikan absensi hari ini. Terima kasih atas dedikasinya!"
+                    : sudahAbsenDatang
+                    ? `Absen datang tercatat pukul ${jamDatang}. Jangan lupa catat absen pulang sebelum berangkat.`
+                    : "Catat kehadiran Anda hari ini dan pantau kehadiran siswa per kelas."}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    onClick={handleAbsenGuruDatang}
+                    disabled={isLoading || sudahAbsenDatang}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#D6B25E] px-5 py-2.5 font-semibold text-[#0F3D8C] shadow-md transition hover:bg-[#c7a34e] active:scale-95 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/70"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    {sudahAbsenDatang ? "Sudah Absen Datang" : "Absen Datang"}
+                  </button>
+
+                  <button
+                    onClick={handleAbsenGuruPulang}
+                    disabled={isLoading || !sudahAbsenDatang || sudahAbsenPulang}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 font-semibold text-white transition hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M17 16l4-4m0 0l-4-4m4 4H7" />
+                    </svg>
+                    {sudahAbsenPulang ? "Sudah Absen Pulang" : "Absen Pulang"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 lg:w-90">
+                <div className="rounded-xl bg-white/10 p-4 text-center backdrop-blur">
+                  <p className="text-2xl font-bold text-[#D6B25E]">
+                    {sudahAbsenDatang ? jamDatang : "--:--"}
+                  </p>
+                  <p className="mt-1 text-xs text-blue-100">Jam Datang</p>
+                </div>
+                <div className="rounded-xl bg-white/10 p-4 text-center backdrop-blur">
+                  <p className="text-2xl font-bold text-[#D6B25E]">
+                    {sudahAbsenPulang ? jamPulang : "--:--"}
+                  </p>
+                  <p className="mt-1 text-xs text-blue-100">Jam Pulang</p>
+                </div>
+                <div className="rounded-xl bg-white/10 p-4 text-center backdrop-blur">
+                  <p className="text-2xl font-bold text-[#D6B25E]">{riwayatAbsenGuru.length}</p>
+                  <p className="mt-1 text-xs text-blue-100">Total Absensi</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* STAT CARDS */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-blue-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-500">Total Siswa</p>
+                <span className="rounded-lg bg-blue-50 p-2 text-[#0F3D8C]">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+                    <circle cx="10" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-3 text-3xl font-bold text-[#0F3D8C]">{allMurid.length}</p>
+              <p className="mt-1 text-xs text-gray-400">Siswa terdaftar</p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-500">Kelas Aktif</p>
+                <span className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M22 10L12 5 2 10l10 5 10-5z" />
+                    <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-3 text-3xl font-bold text-emerald-700">{kelasList.length}</p>
+              <p className="mt-1 text-xs text-gray-400">Tingkat tersedia</p>
+            </div>
+
+            <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-500">Kehadiran Hari Ini</p>
+                <span className="rounded-lg bg-amber-50 p-2 text-amber-700">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-3 text-3xl font-bold text-amber-700">
+                {sudahAbsenDatang ? "Hadir" : "Belum"}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                {sudahAbsenPulang
+                  ? "Sudah absen pulang"
+                  : sudahAbsenDatang
+                  ? "Belum absen pulang"
+                  : "Belum absen datang"}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-rose-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-500">Riwayat Absensi</p>
+                <span className="rounded-lg bg-rose-50 p-2 text-rose-700">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-3 text-3xl font-bold text-rose-700">{riwayatAbsenGuru.length}</p>
+              <p className="mt-1 text-xs text-gray-400">Log kehadiran</p>
+            </div>
+          </div>{/* TAMPILAN 1: ABSENSI GURU */}
           {menuAktif === "Absensi Guru" && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-3xl font-bold text-[#0F3D8C]">Absensi Guru</h2>
-                <p className="mt-1 text-gray-500">Catat kehadiran datang, pulang, dan pantau riwayat mengajar Anda.</p>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="mb-5">
+                <h3 className="text-lg font-bold text-[#0F3D8C]">Riwayat Kehadiran</h3>
+                <p className="text-sm text-gray-500">Log absensi datang dan pulang Anda.</p>
               </div>
 
-              <div className="mb-6 flex gap-4">
-                <button
-                  onClick={handleAbsenGuruDatang}
-                  disabled={isLoading}
-                  className="rounded-xl bg-[#0F3D8C] px-6 py-3 font-semibold text-white hover:bg-[#0B2E69] transition disabled:bg-gray-400 shadow-md active:scale-95"
-                >
-                  Absen Datang
-                </button>
-
-                <button
-                  onClick={handleAbsenGuruPulang}
-                  disabled={isLoading}
-                  className="rounded-xl bg-[#D6B25E] px-6 py-3 font-semibold text-[#0F3D8C] hover:bg-[#c7a34e] transition disabled:bg-gray-400 shadow-md active:scale-95"
-                >
-                  Absen Pulang
-                </button>
-              </div>
-
-              <div className="overflow-hidden rounded-2xl bg-white shadow-lg">
-                <table className="w-full">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full min-w-max text-sm">
                   <thead className="bg-[#F6E7B5] text-[#0F3D8C]">
                     <tr>
-                      <th className="px-4 py-3 text-left">Nama Guru</th>
                       <th className="px-4 py-3 text-left">Tanggal</th>
                       <th className="px-4 py-3 text-left">Jam Datang</th>
                       <th className="px-4 py-3 text-left">Jam Pulang</th>
+                      <th className="px-4 py-3 text-left">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {riwayatAbsenGuru.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-gray-400">Belum ada riwayat kehadiran</td>
+                        <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
+                          Belum ada riwayat kehadiran
+                        </td>
                       </tr>
                     ) : (
                       riwayatAbsenGuru.map((log) => {
                         const dateObjMasuk = new Date(log.waktuMasuk);
-                        const dateObjPulang = log.waktuPulang ? new Date(log.waktuPulang) : null;
+                        const dateObjPulang = log.waktuPulang
+                          ? new Date(log.waktuPulang)
+                          : null;
+
                         return (
-                          <tr key={log.id} className="border-t">
-                            <td className="px-4 py-3 text-gray-700 font-medium">{user.nama}</td>
-                            <td className="px-4 py-3 text-gray-600">{dateObjMasuk.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</td>
-                            <td className="px-4 py-3 text-gray-600 font-semibold">{dateObjMasuk.toLocaleTimeString("id-ID")}</td>
-                            <td className="px-4 py-3 text-gray-600 font-semibold">
-                              {dateObjPulang ? dateObjPulang.toLocaleTimeString("id-ID") : "Belum Absen Pulang"}
+                          <tr key={log.id} className="border-t hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-600">
+                              {dateObjMasuk.toLocaleDateString("id-ID", {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              })}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-gray-700">
+                              {dateObjMasuk.toLocaleTimeString("id-ID")}
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-gray-700">
+                              {dateObjPulang
+                                ? dateObjPulang.toLocaleTimeString("id-ID")
+                                : "Belum Absen Pulang"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {dateObjPulang ? (
+                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                                  Lengkap
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                                  Belum Pulang
+                                </span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -401,71 +792,133 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAMPILAN 2: ABSENSI SISWS */}
+          {/* TAMPILAN 2: ABSENSI SISWA */}
           {menuAktif === "Absensi Siswa" && (
-            <>
-              <div className="mb-6">
-                <h2 className="text-3xl font-bold text-[#0F3D8C]">Absensi Kelas {kelasAktif.replaceAll("_", " ")}</h2>
-                <p className="mt-1 text-gray-500">Pengajar: <span className="font-semibold text-blue-700">{user.nama}</span></p>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-[#0F3D8C]">
+                    Absensi Kelas {formatKelas(kelasAktif)}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Pengajar:{" "}
+                    <span className="font-semibold text-blue-700">{user.nama}</span>
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="rounded-lg bg-blue-50 px-3 py-1 font-semibold text-[#0F3D8C]">
+                    {muridPerKelas.length} siswa
+                  </span>
+                  <span className="rounded-lg bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+                    {jumlahHadir} hadir
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={tandaiSemuaHadir}
+                    className="rounded-lg border border-gray-200 px-3 py-1 font-semibold text-gray-600 transition hover:bg-gray-50"
+                  >
+                    Semua Hadir
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={resetStatus}
+                    className="rounded-lg border border-gray-200 px-3 py-1 font-semibold text-gray-600 transition hover:bg-gray-50"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
 
-              <div className="overflow-hidden rounded-2xl bg-white shadow-lg">
-                <table className="w-full">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full min-w-max text-sm">
                   <thead className="bg-[#F6E7B5] text-[#0F3D8C]">
                     <tr>
                       <th className="px-5 py-4 text-left">No</th>
                       <th className="px-5 py-4 text-left">Nama Siswa</th>
                       <th className="px-5 py-4 text-left">Status Kehadiran</th>
-                      <th className="px-5 py-4 text-left">Pengajar</th>
                     </tr>
                   </thead>
                   <tbody>
                     {muridPerKelas.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-12 text-center text-gray-400">
-                          Tidak ada data murid terdaftar untuk <span className="font-bold text-red-500">Kelas {kelasAktif.replaceAll("_", " ")}</span> di database.
+                        <td colSpan={3} className="px-5 py-12 text-center text-gray-400">
+                          Tidak ada data murid terdaftar untuk{" "}
+                          <span className="font-bold text-red-500">
+                            Kelas {formatKelas(kelasAktif)}
+                          </span>{" "}
+                          di database.
                         </td>
                       </tr>
                     ) : (
-                      muridPerKelas.map((murid, index) => (
-                        <tr key={murid.id} className="border-t hover:bg-gray-50 transition">
-                          <td className="px-5 py-4 text-gray-600">{index + 1}</td>
-                          <td className="px-5 py-4 font-semibold text-gray-700">{murid.namaLengkap}</td>
-                          <td className="px-5 py-4">
-                            <select
-                              value={absenSiswa[murid.id] || "ALPHA"}
-                              onChange={(e) =>
-                                setAbsenSiswa({
-                                  ...absenSiswa,
-                                  [murid.id]: e.target.value,
-                                })
-                              }
-                              className="rounded-lg border border-[#D6B25E] bg-white px-3 py-2 text-sm text-gray-700 font-medium outline-none focus:border-[#0F3D8C]"
-                            >
-                              <option value="HADIR">Hadir</option>
-                              <option value="IZIN">Izin</option>
-                              <option value="SAKIT">Sakit</option>
-                              <option value="ALPHA">Alpha</option>
-                            </select>
-                          </td>
-                          <td className="px-5 py-4 text-gray-600 font-medium">{user.nama}</td>
-                        </tr>
-                      ))
+                      muridPerKelas.map((murid, index) => {
+                        const status = absenSiswa[murid.id] || "ALPHA";
+
+                        return (
+                          <tr key={murid.id} className="border-t hover:bg-gray-50">
+                            <td className="px-5 py-4 text-gray-600">{index + 1}</td>
+                            <td className="px-5 py-4 font-semibold text-gray-700">
+                              {murid.namaLengkap}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-3">
+                                <select
+                                  value={status}
+                                  onChange={(e) =>
+                                    setAbsenSiswa({
+                                      ...absenSiswa,
+                                      [murid.id]: e.target.value,
+                                    })
+                                  }
+                                  className={`rounded-lg border bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-[#0F3D8C]/10 ${STATUS_SELECT_STYLE[status]}`}
+                                >
+                                  {STATUS_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
 
               {muridPerKelas.length > 0 && (
-                <button
-                  onClick={handleSimpanAbsensiSiswa}
-                  disabled={isLoading}
-                  className="mt-6 rounded-xl bg-[#0F3D8C] px-6 py-3 font-semibold text-white hover:bg-[#0B2E69] transition disabled:bg-gray-400 shadow-md active:scale-95"
-                >
-                  {isLoading ? "Menyimpan Ke Database..." : "Simpan Absensi"}
-                </button>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-500">
+                    {jumlahHadir} dari {muridPerKelas.length} siswa tercatat hadir.
+                  </p>
+
+                  <button
+                    onClick={handleSimpanAbsensiSiswa}
+                    disabled={isLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F3D8C] px-6 py-3 font-semibold text-white shadow-md transition hover:bg-[#0B2E69] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-400"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <path d="M17 21v-8H7v8M7 3v5h8" />
+                    </svg>
+                    {isLoading ? "Menyimpan Ke Database..." : "Simpan Absensi"}
+                  </button>
+                </div>
               )}
-            </>
+            </div>
           )}
         </main>
       </div>

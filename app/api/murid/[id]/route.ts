@@ -72,7 +72,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await verifyToken(req)
+    const payload = await verifyToken(req)
+    if ((payload.peran || payload.role) !== "ADMIN") {
+      return Response.json(
+        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
+        { status: 403 }
+      )
+    }
+
     const { id } = await params
     const body = await req.json()
     const data = updateMuridSchema.parse(body)
@@ -115,7 +122,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await verifyToken(req)
+    const payload = await verifyToken(req)
+    if ((payload.peran || payload.role) !== "ADMIN") {
+      return Response.json(
+        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
+        { status: 403 }
+      )
+    }
 
     const { id } = await params
 
