@@ -1,36 +1,20 @@
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { hashPassword } from "@/lib/hash"
-import { jwtVerify } from "jose"
+import { responGuard, wajibAdmin } from "@/lib/api-guard"
 
 const updateUserSchema = z.object({
   nama: z.string().optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional().or(z.literal("")),
+  password: z.string().min(8).optional().or(z.literal("")),
   peran: z.enum(["ADMIN", "GURU"]).optional(),
   noHp: z.string().min(11).optional(),
 })
 
-async function isAdmin(req: Request) {
-  const authHeader = req.headers.get("authorization")
-  const tokenString = authHeader?.split(" ")[1]
-  if (!tokenString) return false
-  try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-    const { payload } = await jwtVerify(tokenString, secret)
-    const userRole = payload.peran || payload.role
-    return userRole === "ADMIN"
-  } catch {
-    return false
-  }
-}
-
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    if (!(await isAdmin(req))) {
-      return Response.json({ message: "Akses ditolak: Hanya ADMIN yang diizinkan" }, { status: 403 })
-    }
+    await wajibAdmin(req)
 
     const body = await req.json()
     const data = updateUserSchema.parse(body)
@@ -54,6 +38,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     return Response.json({ message: "Data pengguna berhasil diperbarui", data: userDiperbarui })
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     if (error instanceof z.ZodError) {
       return Response.json({ message: "Format data tidak valid", errors: error.issues }, { status: 400 })
     }
@@ -64,9 +51,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    if (!(await isAdmin(req))) {
-      return Response.json({ message: "Akses ditolak: Hanya ADMIN yang diizinkan" }, { status: 403 })
-    }
+    await wajibAdmin(req)
 
     await prisma.pengguna.delete({
       where: { id },
@@ -74,6 +59,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     return Response.json({ message: "Akun pengguna berhasil dihapus" })
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     return Response.json({ message: "Gagal menghapus pengguna" }, { status: 500 })
   }
 }

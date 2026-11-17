@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { clearSession, touchSession } from "@/lib/session";
+import { clearSession, logout, touchSession } from "@/lib/session";
 
 export default function Home() {
   const [email, setEmail] = useState("");
@@ -31,34 +31,31 @@ export default function Home() {
     isConfirmLogout: false,
   });
 
-  // Memeriksa sesi login aktif saat pertama kali halaman dimuat
+  // Memeriksa sesi login aktif saat pertama kali halaman dimuat.
+  // Sesi hidup di cookie HttpOnly, jadi validitasnya dikonfirmasi ke server.
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
-    const savedToken = localStorage.getItem("token");
-    const hasCookieToken = document.cookie.includes("token=");
+    if (!savedUser) return;
 
-    // Skenario Timeout 2 Jam: Jika token di cookie sudah dihapus otomatis oleh browser 
-    // tetapi di localStorage masih tersimpan data lama, lakukan pembersihan total.
-    if (!hasCookieToken && (savedUser || savedToken)) {
-      clearSession();
-      setUserSession(null);
-      window.location.reload();
-      return;
-    }
+    (async () => {
+      try {
+        const res = await fetch("/api/me");
+        if (!res.ok) {
+          clearSession();
+          return;
+        }
 
-    if (savedUser && savedToken && hasCookieToken) {
-      const parsedUser = JSON.parse(savedUser);
-      setUserSession(parsedUser);
-      
-      // PROTEKSI KLIEN: Jika user nekat klik BACK atau ngetik "/" padahal sesi masih aktif,
-      // langsung oper (replace) kembali secara paksa ke dashboard hak akses masing-masing.
-      if (parsedUser.peran === "ADMIN") {
-        router.replace("/admin");
-      } else {
-        router.replace("/dashboard");
+        const data = await res.json();
+        setUserSession(data.user);
+
+        // PROTEKSI KLIEN: jika user membuka "/" padahal sesi masih aktif,
+        // langsung diarahkan ke dashboard hak akses masing-masing.
+        router.replace(data.user.peran === "ADMIN" ? "/admin" : "/dashboard");
+      } catch {
+        clearSession();
       }
-    }
-  }, []);
+    })();
+  }, [router]);
 
   // Fungsi pembantu untuk memicu munculnya Pop-up
   const showPopup = (title: string, message: string, isSuccess: boolean = false, isConfirmLogout: boolean = false) => {
@@ -94,8 +91,7 @@ export default function Home() {
       // 2. Memicu pop-up selamat datang dinamis dengan nama user asli dari DB
       showPopup("Berhasil", `Selamat datang kembali, ${data.user.nama}!`, true);
 
-      // 3. Simpan data ke Penyimpanan Browser Lokal
-      localStorage.setItem("token", data.token);
+      // 3. Simpan penanda sesi (token tetap di cookie HttpOnly server)
       localStorage.setItem("user", JSON.stringify(data.user));
       
       // 4. Set Cookie Native Max-Age (Browser akan otomatis menghapus sesi ini tepat setelah 2 jam)
@@ -113,8 +109,8 @@ export default function Home() {
         router.refresh();
       }, 1200);
 
-    } catch (err: any) {
-      showPopup("Login Gagal", err.message, false);
+    } catch (err) {
+      showPopup("Login Gagal", err instanceof Error ? err.message : "Gagal masuk", false);
     } finally {
       setIsLoading(false);
     }
@@ -133,12 +129,8 @@ export default function Home() {
 
   // Eksekusi pembersihan total sesi (Hapus data & Cookie)
   const executeLogout = () => {
-    clearSession();
-    setUserSession(null);
     setNotification({ show: false, title: "", message: "", isSuccess: false, isConfirmLogout: false });
-    
-    // Muat ulang halaman total agar status kembali bersih
-    window.location.reload();
+    void logout();
   };
 
   return (

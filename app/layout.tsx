@@ -5,6 +5,9 @@ import "./globals.css";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { SessionTimeoutManager } from "@/context/SessionTimeoutManager";
 
+// Halaman butuh render dinamis supaya nonce CSP bisa ditempelkan per request.
+export const dynamic = "force-dynamic";
+
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "700", "800"],

@@ -2,19 +2,20 @@ export const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 export const LAST_ACTIVITY_KEY = "lastActivityAt";
 export const SESSION_UPDATED_EVENT = "session-updated";
 
-export function getSessionToken() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+/**
+ * Token sesi hanya hidup di cookie HttpOnly yang dipasang server.
+ * Kunci "user" di localStorage dipakai hanya sebagai penanda "sedang login"
+ * (untuk tampilan & pengalihan halaman), bukan sebagai kredensial.
+ */
+export function isLoggedIn() {
+  if (typeof window === "undefined") return false;
+  return Boolean(localStorage.getItem("user"));
 }
 
 export function touchSession() {
   if (typeof window === "undefined") return;
 
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
   localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
-  document.cookie = `token=${token}; path=/; max-age=7200; SameSite=Strict;`;
   window.dispatchEvent(new Event(SESSION_UPDATED_EVENT));
 }
 
@@ -24,15 +25,27 @@ export function clearSession() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem(LAST_ACTIVITY_KEY);
-  document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict;";
   window.dispatchEvent(new Event(SESSION_UPDATED_EVENT));
+}
+
+/** Memanggil endpoint logout server agar cookie HttpOnly ikut dihapus. */
+export async function logout() {
+  if (typeof window === "undefined") return;
+
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // jaringan gagal: tetap bersihkan sisi klien
+  }
+
+  clearSession();
+  window.location.reload();
 }
 
 export function getRemainingSessionTime() {
   if (typeof window === "undefined") return 0;
 
-  const token = localStorage.getItem("token");
-  if (!token) return 0;
+  if (!isLoggedIn()) return 0;
 
   const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
   if (!lastActivity) return SESSION_TIMEOUT_MS;

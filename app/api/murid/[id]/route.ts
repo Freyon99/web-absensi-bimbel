@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { Kelas } from "@prisma/client"
-import { jwtVerify } from "jose"
+import { responGuard, wajibAdmin, wajibAuth } from "@/lib/api-guard"
 
 const updateMuridSchema = z.object({
   namaLengkap: z.string().optional(),
@@ -20,29 +20,13 @@ const updateMuridSchema = z.object({
   catatanAnak: z.string().optional().nullable(),
 })
 
-async function verifyToken(req: Request) {
-  const authHeader = req.headers.get("authorization")
-
-  const token = authHeader?.split(" ")[1]
-
-  if (!token) {
-    throw new Error("TOKEN_NOT_FOUND")
-  }
-
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-
-  const { payload } = await jwtVerify(token, secret)
-
-  return payload
-}
-
 // GET DETAIL MURID
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await verifyToken(req)
+    await wajibAuth(req)
 
     const { id } = await params
 
@@ -59,6 +43,9 @@ export async function GET(
 
     return Response.json(murid)
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     return Response.json(
       { message: "Gagal mengambil data murid" },
       { status: 500 }
@@ -72,13 +59,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = await verifyToken(req)
-    if ((payload.peran || payload.role) !== "ADMIN") {
-      return Response.json(
-        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
-        { status: 403 }
-      )
-    }
+    await wajibAdmin(req)
 
     const { id } = await params
     const body = await req.json()
@@ -92,6 +73,9 @@ export async function PUT(
       data: murid,
     })
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error("PUT ERROR:", error)
 
     if (error instanceof z.ZodError) {
@@ -122,13 +106,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = await verifyToken(req)
-    if ((payload.peran || payload.role) !== "ADMIN") {
-      return Response.json(
-        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
-        { status: 403 }
-      )
-    }
+    await wajibAdmin(req)
 
     const { id } = await params
 
@@ -140,14 +118,10 @@ export async function DELETE(
       message: "Murid berhasil dihapus",
     })
   } catch (error) {
-    return Response.json(
-      {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Gagal menghapus murid",
-      },
-      { status: 500 }
-    )
+    const guard = responGuard(error)
+    if (guard) return guard
+
+    console.error("DELETE MURID ERROR:", error)
+    return Response.json({ message: "Gagal menghapus murid" }, { status: 500 })
   }
 }

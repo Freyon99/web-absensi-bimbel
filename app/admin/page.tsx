@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
-import { clearSession } from "@/lib/session";
+import { logout } from "@/lib/session";
+import { fetchApi } from "@/lib/api-client";
 
 interface UserProfile {
   id: string;
@@ -39,6 +40,19 @@ interface LogAbsenGuru {
   guru: { nama: string };
 }
 
+interface RingkasanImport {
+  total: number;
+  success: number;
+  skipped: number;
+  failed: number;
+}
+
+interface HasilImport {
+  message: string;
+  summary: RingkasanImport;
+  errors: { row: number; message: string }[];
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -70,16 +84,21 @@ export default function AdminPage() {
 
   const [user, setUser] = useState<UserProfile | null>(null);
 
+  // State khusus fitur import & export data murid
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [hasilImport, setHasilImport] = useState<HasilImport | null>(null);
+
   useEffect(() => {
     const checkSession = async () => {
       setIsLoadingGlobal(true);
       const savedUser = localStorage.getItem("user");
-      const savedToken = localStorage.getItem("token");
-      
-      if (!savedToken || !savedUser) { 
-        router.push("/"); 
+
+      if (!savedUser) {
+        router.push("/");
         setIsLoadingGlobal(false);
-        return; 
+        return;
       }
       
       const parsedUser = JSON.parse(savedUser);
@@ -108,14 +127,12 @@ export default function AdminPage() {
   }, []);
 
   async function fetchDataSiswa() {
-    const token = localStorage.getItem("token");
-    const res = await fetch("/api/murid", { headers: { "Authorization": `Bearer ${token}` } });
+    const res = await fetchApi("/api/murid");
     if (res.ok) setSiswaList(await res.json());
   }
 
   async function fetchDataGuru() {
-    const token = localStorage.getItem("token");
-    const res = await fetch("/api/users", { headers: { "Authorization": `Bearer ${token}` } });
+    const res = await fetchApi("/api/users");
     if (res.ok) {
       const data = await res.json();
       setGuruList(data.filter((u: UserProfile) => u.peran === "GURU"));
@@ -123,19 +140,105 @@ export default function AdminPage() {
   }
 
   async function fetchAbsensiGuru() {
-    const token = localStorage.getItem("token");
-    const res = await fetch("/api/absensi-guru", { headers: { "Authorization": `Bearer ${token}` } });
+    const res = await fetchApi("/api/absensi-guru");
     if (res.ok) setAbsenGuruList(await res.json());
   }
 
+  // Unduh file (CSV/Excel) dari server lalu simpan lewat anchor,
+  async function unduhFile(url: string, namaCadangan: string) {
+    const res = await fetchApi(url);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || "Gagal mengunduh file.");
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const cocok = /filename="?([^";]+)"?/i.exec(disposition);
+
+    const urlObjek = URL.createObjectURL(blob);
+    const penghubung = document.createElement("a");
+    penghubung.href = urlObjek;
+    penghubung.download = cocok?.[1] || namaCadangan;
+    document.body.appendChild(penghubung);
+    penghubung.click();
+    penghubung.remove();
+    URL.revokeObjectURL(urlObjek);
+  }
+
+  const handleEkspor = async (format: "csv" | "xlsx") => {
+    if (isExporting) return;
+    setIsExporting(true);
+
+    try {
+      await unduhFile(`/api/murid/export?format=${format}`, `data-murid.${format}`);
+      showNotification("Sukses", `Data murid berhasil diekspor ke ${format.toUpperCase()}.`, true);
+    } catch (error) {
+      showNotification(
+        "Gagal Mengekspor",
+        error instanceof Error ? error.message : "Terjadi kesalahan saat mengekspor data.",
+        false
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleEksporTemplate = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+
+    try {
+      await unduhFile("/api/murid/export?template=1", "template-import-murid.csv");
+    } catch (error) {
+      showNotification(
+        "Gagal Mengunduh Template",
+        error instanceof Error ? error.message : "Terjadi kesalahan saat mengunduh template.",
+        false
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleBerkasDipilih = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const berkas = e.target.files?.[0];
+    e.target.value = ""; // reset agar file yang sama bisa dipilih ulang
+    if (!berkas) return;
+
+    setIsImporting(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", berkas);
+
+      const res = await fetchApi("/api/murid/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showNotification("Gagal Mengimpor", data.message || "Import data murid gagal.", false);
+        return;
+      }
+
+      setHasilImport(data);
+      fetchDataSiswa();
+    } catch {
+      showNotification("Error", "Terjadi kesalahan jaringan saat mengimpor data.", false);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleTambahGuru = async (e: React.FormEvent) => {
     e.preventDefault();
-    const tokenAdmin = localStorage.getItem("token");
-    const res = await fetch("/api/auth/register", {
+    const res = await fetchApi("/api/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${tokenAdmin}`,
       },
       body: JSON.stringify({ ...formGuru, peran: "GURU" }),
     });
@@ -166,15 +269,13 @@ export default function AdminPage() {
     e.preventDefault();
     if (!selectedGuru) return;
     
-    const token = localStorage.getItem("token");
     setIsLoadingGlobal(true);
 
     try {
-      const res = await fetch(`/api/users/${selectedGuru.id}`, {
+      const res = await fetchApi(`/api/users/${selectedGuru.id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(formGuru), // Mengirim nama, email, noHp, dan password jika diisi
       });
@@ -197,10 +298,9 @@ export default function AdminPage() {
 
   const handleTambahSiswa = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
-    const res = await fetch("/api/murid", {
+    const res = await fetchApi("/api/murid", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formSiswa),
     });
     if (res.ok) {
@@ -215,10 +315,9 @@ export default function AdminPage() {
   const handleEditSiswa = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSiswa) return;
-    const token = localStorage.getItem("token");
-    const res = await fetch(`/api/murid/${selectedSiswa.id}`, {
+    const res = await fetchApi(`/api/murid/${selectedSiswa.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formSiswa),
     });
     if (res.ok) {
@@ -235,10 +334,8 @@ export default function AdminPage() {
       "Hapus Data Murid?",
       `Apakah Anda yakin ingin menghapus data murid ${nama}? Riwayat absensinya juga akan ikut terhapus.`,
       async () => {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`/api/murid/${id}`, {
+        const res = await fetchApi(`/api/murid/${id}`, {
           method: "DELETE",
-          headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.ok) {
           showNotification("Terhapus", "Data murid telah dihapus dari sistem.", true);
@@ -272,8 +369,7 @@ export default function AdminPage() {
   };
 
   const executeLogout = () => {
-    clearSession();
-    window.location.reload();
+    void logout();
   };
 
   const formatKelas = (kelas: string) => {
@@ -598,10 +694,13 @@ export default function AdminPage() {
           {/* MENU 1: DATA SISWA */}
           {menuAktif === "Data Siswa" && (
             <div className="rounded-2xl bg-white p-6 shadow w-full">
-              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-2xl font-bold text-[#0F3D8C]">Data Siswa</h3>
                   <p className="text-sm text-gray-500">Kelola dan pantau seluruh murid master Aksara Bimbel.</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Import menerima file CSV/Excel dengan kolom sesuai template. Baris duplikat (nama + No HP sama) otomatis dilewati.
+                  </p>
                   {(activeSiswaKelasFilter || activeSiswaPembayaranFilter) && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-[#0F3D8C]">
@@ -617,21 +716,62 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input type="text" placeholder="Cari nama siswa..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="rounded-xl border border-[#D6B25E] px-4 py-2 text-sm text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" />
-                  <button 
-                    onClick={() => { 
-                      setFormSiswa({
-                        namaLengkap: "", namaPanggilan: "", kelas: "CALISTUNG", sekolahAsal: "",
-                        namaOrangTuaWali: "", pekerjaanAyah: "", pekerjaanIbu: "", alamatDomisili: "",
-                        noHpOrangTua: "", hari: "", jam: "", pembayaran: "BELUM LUNAS", mapel: "", catatanAnak: ""
-                      }); 
-                      setModalType("tambahSiswa"); 
-                    }} 
-                    className="rounded-xl bg-[#0F3D8C] px-5 py-2 font-semibold text-white hover:bg-[#0B2E69] whitespace-nowrap"
-                  >
-                    Tambah Siswa
-                  </button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <input type="text" placeholder="Cari nama siswa..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-[#D6B25E] px-4 py-2 text-sm text-gray-900 bg-white outline-none focus:border-[#0F3D8C] sm:w-64" />
+
+                  <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBerkasDipilih} />
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isImporting}
+                      className="rounded-xl border border-[#0F3D8C] px-4 py-2 text-sm font-semibold text-[#0F3D8C] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isImporting ? "Mengimpor..." : "Import"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEkspor("csv")}
+                      disabled={isExporting}
+                      className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                    >
+                      Export CSV
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEkspor("xlsx")}
+                      disabled={isExporting}
+                      className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                    >
+                      Export Excel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleEksporTemplate}
+                      disabled={isExporting}
+                      className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                    >
+                      Template
+                    </button>
+
+                    <button 
+                      onClick={() => { 
+                        setFormSiswa({
+                          namaLengkap: "", namaPanggilan: "", kelas: "CALISTUNG", sekolahAsal: "",
+                          namaOrangTuaWali: "", pekerjaanAyah: "", pekerjaanIbu: "", alamatDomisili: "",
+                          noHpOrangTua: "", hari: "", jam: "", pembayaran: "BELUM LUNAS", mapel: "", catatanAnak: ""
+                        }); 
+                        setModalType("tambahSiswa"); 
+                      }} 
+                      className="rounded-xl bg-[#0F3D8C] px-5 py-2 font-semibold text-white hover:bg-[#0B2E69] whitespace-nowrap"
+                    >
+                      Tambah Siswa
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -733,10 +873,8 @@ export default function AdminPage() {
                             <button 
                               onClick={() => {
                                 showConfirm("Hapus Akun Pengajar?", `Hapus permanen akun milik ${item.nama}?`, async () => {
-                                  const token = localStorage.getItem("token");
-                                  const res = await fetch(`/api/users/${item.id}`, {
+                                  const res = await fetchApi(`/api/users/${item.id}`, {
                                     method: "DELETE",
-                                    headers: { "Authorization": `Bearer ${token}` }
                                   });
                                   if (res.ok) {
                                     showNotification("Terhapus", "Akun pengajar berhasil dihapus.", true);
@@ -1044,13 +1182,59 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="text-sm font-semibold block text-gray-700 mb-1">Password Baru (Kosongkan jika tidak diubah)</label>
-              <input type="password" placeholder="Minimal 6 karakter" value={formGuru.password} onChange={(e) => setFormGuru({...formGuru, password: e.target.value})} className="w-full rounded-xl border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" />
+              <input type="password" placeholder="Minimal 8 karakter" value={formGuru.password} onChange={(e) => setFormGuru({...formGuru, password: e.target.value})} className="w-full rounded-xl border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" />
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModalType(null)} className="flex-1 rounded-xl bg-gray-100 py-2.5 font-semibold text-gray-700 hover:bg-gray-200">Batal</button>
               <button type="submit" className="flex-1 rounded-xl bg-[#0F3D8C] py-2.5 font-semibold text-white hover:bg-[#0B2E69]">Perbarui Data</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* POP-UP MODAL 4: HASIL IMPORT DATA MURID */}
+      {hasilImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-xl font-bold text-[#0F3D8C]">Hasil Import Data Murid</h3>
+            <p className="mt-2 text-sm text-gray-600">{hasilImport.message}</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Total Baris", nilai: hasilImport.summary.total, warna: "text-gray-900" },
+                { label: "Berhasil", nilai: hasilImport.summary.success, warna: "text-emerald-700" },
+                { label: "Duplikat", nilai: hasilImport.summary.skipped, warna: "text-amber-700" },
+                { label: "Gagal", nilai: hasilImport.summary.failed, warna: "text-rose-700" },
+              ].map((kartu) => (
+                <div key={kartu.label} className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-center">
+                  <p className={`text-2xl font-bold ${kartu.warna}`}>{kartu.nilai}</p>
+                  <p className="mt-1 text-xs text-gray-500">{kartu.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {hasilImport.errors.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-bold text-gray-700">
+                  Detail kendala {hasilImport.errors.length >= 50 ? "(50 kendala pertama)" : ""}:
+                </p>
+                <div className="mt-2 max-h-56 divide-y divide-gray-50 overflow-y-auto rounded-xl border border-gray-100">
+                  {hasilImport.errors.map((item, indeks) => (
+                    <p key={indeks} className="px-3 py-2 text-xs text-gray-600">
+                      <span className="font-bold text-rose-600">Baris {item.row}:</span> {item.message}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setHasilImport(null)}
+              className="mt-5 w-full rounded-xl bg-[#0F3D8C] py-3 font-semibold text-white hover:bg-[#0B2E69] transition"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
     </div>

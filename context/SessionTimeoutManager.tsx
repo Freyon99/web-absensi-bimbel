@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
-  clearSession,
   getRemainingSessionTime,
-  getSessionToken,
+  isLoggedIn,
+  logout,
   LAST_ACTIVITY_KEY,
   SESSION_UPDATED_EVENT,
   touchSession,
@@ -21,22 +20,18 @@ const ACTIVITY_EVENTS = [
 ] as const;
 
 export function SessionTimeoutManager() {
-  const router = useRouter();
-
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let lastRecordedActivity = 0;
 
     const logoutBecauseIdle = () => {
-      clearSession();
-      router.replace("/");
-      router.refresh();
+      void logout();
     };
 
     const scheduleLogout = () => {
       if (timeoutId) clearTimeout(timeoutId);
 
-      if (!getSessionToken()) return;
+      if (!isLoggedIn()) return;
 
       if (!localStorage.getItem(LAST_ACTIVITY_KEY)) {
         touchSession();
@@ -52,7 +47,7 @@ export function SessionTimeoutManager() {
     };
 
     const handleActivity = () => {
-      if (!getSessionToken()) return;
+      if (!isLoggedIn()) return;
       if (getRemainingSessionTime() <= 0) {
         logoutBecauseIdle();
         return;
@@ -87,7 +82,7 @@ export function SessionTimeoutManager() {
       window.removeEventListener("focus", scheduleLogout);
       window.removeEventListener(SESSION_UPDATED_EVENT, scheduleLogout);
     };
-  }, [router]);
+  }, []);
 
   return null;
 }

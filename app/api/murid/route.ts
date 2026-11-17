@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma"
 import { z } from "zod"
-import { jwtVerify } from "jose"
 import { Kelas } from "@prisma/client"
+import { responGuard, wajibAdmin, wajibAuth } from "@/lib/api-guard"
 
 const muridSchema = z.object({
   namaLengkap: z.string(),
@@ -23,33 +23,9 @@ const muridSchema = z.object({
 export async function POST(req: Request) {
   try {
     // =========================
-    // AMBIL TOKEN LOGIN
-    // =========================
-    const authHeader = req.headers.get("authorization")
-
-    if (!authHeader) {
-      return Response.json(
-        { message: "Token tidak ditemukan" },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.split(" ")[1]
-
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-
-    const { payload } = await jwtVerify(token, secret)
-
-    // =========================
     // KUNCI: HANYA ADMIN yang boleh menambah data murid
     // =========================
-    const userRole = payload.peran || payload.role
-    if (userRole !== "ADMIN") {
-      return Response.json(
-        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
-        { status: 403 }
-      )
-    }
+    const payload = await wajibAdmin(req)
 
     // =========================
     // AMBIL BODY
@@ -91,6 +67,9 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error("DETAIL ERROR DATABASE:", error)
 
     if (error instanceof z.ZodError) {
@@ -120,18 +99,7 @@ export async function GET(req: Request) {
     // =========================
     // WAJIB LOGIN: data murid hanya untuk pengguna terautentikasi
     // =========================
-    const authHeader = req.headers.get("authorization")
-
-    if (!authHeader) {
-      return Response.json(
-        { message: "Token tidak ditemukan" },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.split(" ")[1]
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-    await jwtVerify(token, secret)
+    await wajibAuth(req)
 
     const semuaMurid = await prisma.murid.findMany({
       orderBy: {
@@ -141,6 +109,9 @@ export async function GET(req: Request) {
 
     return Response.json(semuaMurid)
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error("DETAIL ERROR GET MURID:", error)
 
     return Response.json(

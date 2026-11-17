@@ -1,13 +1,13 @@
-import prisma from "@/lib/prisma"
+import  prisma  from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
-import { jwtVerify } from "jose"
+import { responGuard, wajibAdmin } from "@/lib/api-guard"
 import { z } from "zod"
 
 const registerSchema = z.object({
   nama: z.string(),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(8),
   peran: z.enum(["ADMIN", "GURU"]),
   noHp: z.string().optional(), // ➕ Tambahkan ini ke skema Zod
 })
@@ -17,32 +17,7 @@ export async function POST(req: Request) {
     // =========================
     // KUNCI: HANYA ADMIN yang boleh mendaftarkan akun baru
     // =========================
-    const authHeader = req.headers.get("authorization")
-
-    if (!authHeader) {
-      return Response.json({ message: "Token tidak ditemukan" }, { status: 401 })
-    }
-
-    const tokenPetugas = authHeader.split(" ")[1]
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-
-    let payload: Record<string, unknown>
-    try {
-      payload = (await jwtVerify(tokenPetugas, secret)).payload as Record<string, unknown>
-    } catch {
-      return Response.json(
-        { message: "Token tidak valid atau kedaluwarsa" },
-        { status: 401 }
-      )
-    }
-
-    const peranPetugas = (payload.peran || payload.role) as string | undefined
-    if (peranPetugas !== "ADMIN") {
-      return Response.json(
-        { message: "Akses ditolak: Hanya ADMIN yang diizinkan" },
-        { status: 403 }
-      )
-    }
+    await wajibAdmin(req)
 
     const body = await req.json()
     const data = registerSchema.parse(body)
@@ -81,7 +56,17 @@ export async function POST(req: Request) {
     })
 
   } catch (error) {
-    console.log(error)
+    const guard = responGuard(error)
+    if (guard) return guard
+
+    console.error(error)
+    if (error instanceof z.ZodError) {
+      return Response.json(
+        { message: "Format data tidak valid", errors: error.issues },
+        { status: 400 }
+      )
+    }
+
     return Response.json({ message: "Terjadi kesalahan" }, { status: 500 })
   }
 }

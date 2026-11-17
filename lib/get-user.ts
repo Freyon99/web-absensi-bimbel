@@ -1,4 +1,4 @@
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import jwt from "jsonwebtoken"
 import prisma from "@/lib/prisma" // 1. Tambahkan import prisma di sini
 
@@ -13,15 +13,11 @@ export async function getUserFromHeader() {
   const headersList = await headers()
 
   const authorization = headersList.get("authorization")
-
-  if (!authorization) {
-    throw new Error("Unauthorized")
-  }
-
-  const token = authorization.split(" ")[1]
+  const token =
+    authorization?.split(" ")[1] ?? (await cookies()).get("token")?.value
 
   if (!token) {
-    throw new Error("Token tidak ditemukan")
+    throw new Error("Unauthorized")
   }
 
   const decoded = jwt.verify(

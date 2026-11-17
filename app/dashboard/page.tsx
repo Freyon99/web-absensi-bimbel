@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
-import { clearSession } from "@/lib/session";
+import { logout } from "@/lib/session";
+import { fetchApi } from "@/lib/api-client";
 
 interface UserProfile {
   nama: string;
@@ -114,9 +115,8 @@ export default function DashboardPage() {
       setIsLoadingGlobal(true);
 
       const savedUser = localStorage.getItem("user");
-      const savedToken = localStorage.getItem("token");
 
-      if (!savedToken || !savedUser) {
+      if (!savedUser) {
         router.push("/");
         setIsLoadingGlobal(false);
         return;
@@ -137,48 +137,39 @@ export default function DashboardPage() {
     };
 
     checkGuruSession();
-  }, []);
+  }, [router, setIsLoadingGlobal]);
 
-  const fetchDataMurid = async () => {
+  async function fetchDataMurid() {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/murid", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchApi("/api/murid");
       if (res.ok) {
         setAllMurid(await res.json());
       }
     } catch (error) {
       console.error("Gagal memuat data murid:", error);
     }
-  };
+  }
 
-  const fetchRiwayatAbsenGuru = async () => {
+  async function fetchRiwayatAbsenGuru() {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/absensi-guru", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchApi("/api/absensi-guru");
       if (res.ok) {
         setRiwayatAbsenGuru(await res.json());
       }
     } catch (error) {
       console.error("Gagal memuat log absen guru:", error);
     }
-  };
+  }
 
   const handleAbsenGuruDatang = async () => {
     if (!user) return;
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/absensi-guru", {
+      const res = await fetchApi("/api/absensi-guru", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -190,7 +181,7 @@ export default function DashboardPage() {
       } else {
         showNotification("Gagal Absen", data.message || "Terjadi kesalahan", false);
       }
-    } catch (error) {
+    } catch {
       showNotification("Error", "Terjadi kesalahan jaringan", false);
     } finally {
       setIsLoading(false);
@@ -202,12 +193,10 @@ export default function DashboardPage() {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/absensi-guru", {
+      const res = await fetchApi("/api/absensi-guru", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -218,7 +207,7 @@ export default function DashboardPage() {
       } else {
         showNotification("Gagal Absen", data.message || "Terjadi kesalahan", false);
       }
-    } catch (error) {
+    } catch {
       showNotification("Error", "Terjadi kesalahan jaringan", false);
     } finally {
       setIsLoading(false);
@@ -232,16 +221,13 @@ export default function DashboardPage() {
     let successCount = 0;
 
     try {
-      const token = localStorage.getItem("token");
-
       for (const murid of muridPerKelas) {
         const statusSiswa = absenSiswa[murid.id] || "ALPHA";
 
-        const res = await fetch("/api/absensi", {
+        const res = await fetchApi("/api/absensi", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             muridId: murid.id,
@@ -257,7 +243,7 @@ export default function DashboardPage() {
         `Sukses mencatat ${successCount} data absensi siswa Kelas ${formatKelas(kelasAktif)}!`,
         true
       );
-    } catch (error) {
+    } catch {
       showNotification("Gagal Menyimpan", "Terjadi kegagalan sistem saat menyimpan absensi", false);
     } finally {
       setIsLoading(false);
@@ -274,8 +260,7 @@ export default function DashboardPage() {
   };
 
   const executeLogout = () => {
-    clearSession();
-    window.location.reload();
+    void logout();
   };
 
   const formatKelas = (kelas: string) => kelas.replaceAll("_", " ");
@@ -283,22 +268,6 @@ export default function DashboardPage() {
   const muridPerKelas = allMurid.filter(
     (m) => normalizeKelas(m.kelas) === normalizeKelas(kelasAktif)
   );
-
-  // Isi status bawaan (ALPHA) supaya pilihan di tabel selalu konsisten dengan yang tersimpan
-  useEffect(() => {
-    setAbsenSiswa((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const m of muridPerKelas) {
-        if (!next[m.id]) {
-          next[m.id] = "ALPHA";
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kelasAktif, allMurid]);
 
   const jumlahHadir = Object.values(absenSiswa).filter((s) => s === "HADIR").length;
 

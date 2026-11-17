@@ -1,46 +1,10 @@
 import prisma from "@/lib/prisma"
-import { verifyToken } from "@/lib/jwt"
-
-// Fungsi helper kuat untuk mengambil dan menyelaraskan data token JWT dari Header
-function getAuthPayload(req: Request) {
-  const authHeader = req.headers.get("authorization")
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null
-  }
-  
-  const tokenString = authHeader.split(" ")[1] // Mengambil string token murni ke-2 setelah spasi
-  if (!tokenString) return null
-
-  try {
-    // Membaca isi token menggunakan fungsi verifikasi bawaan sistem Anda
-    const decoded = verifyToken(tokenString) as any
-    
-    // Toleransi multi-property: Mendukung id/userId dan role/peran dari JWT payload Anda
-    const userId = decoded?.id || decoded?.userId
-    const userRole = decoded?.role || decoded?.peran
-
-    if (!userId || !userRole) {
-      console.error("Payload JWT kekurangan data identitas:", decoded)
-      return null
-    }
-
-    return { 
-      id: userId, 
-      role: userRole.toUpperCase() // Dipaksa menjadi huruf besar (ADMIN / GURU) agar validasi if-else akurat
-    }
-  } catch (error) {
-    console.error("Gagal membedah token JWT di API Absensi Guru:", error)
-    return null
-  }
-}
+import { responGuard, wajibAuth } from "@/lib/api-guard"
 
 // 1. GURU ABSEN DATANG (POST)
 export async function POST(req: Request) {
   try {
-    const payload = getAuthPayload(req)
-    if (!payload || !payload.id) {
-      return Response.json({ message: "Sesi tidak valid atau token kedaluwarsa" }, { status: 401 })
-    }
+    const payload = await wajibAuth(req)
 
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
@@ -72,6 +36,9 @@ export async function POST(req: Request) {
 
     return Response.json({ message: "Absen datang berhasil dicatat", data: logAbsen }, { status: 201 })
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error(error)
     return Response.json({ message: "Gagal mencatat absen guru" }, { status: 500 })
   }
@@ -80,10 +47,7 @@ export async function POST(req: Request) {
 // 2. GURU ABSEN PULANG (PUT)
 export async function PUT(req: Request) {
   try {
-    const payload = getAuthPayload(req)
-    if (!payload || !payload.id) {
-      return Response.json({ message: "Sesi tidak valid atau token kedaluwarsa" }, { status: 401 })
-    }
+    const payload = await wajibAuth(req)
 
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
@@ -121,6 +85,9 @@ export async function PUT(req: Request) {
 
     return Response.json({ message: "Absen pulang berhasil dicatat", data: absenDiperbarui })
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error(error)
     return Response.json({ message: "Gagal mencatat absen pulang" }, { status: 500 })
   }
@@ -129,10 +96,7 @@ export async function PUT(req: Request) {
 // 3. AMBIL RIWAYAT ABSENSI GURU (GET) - VALIDASI ROBUST UNTUK ADMIN VS GURU
 export async function GET(req: Request) {
   try {
-    const payload = getAuthPayload(req)
-    if (!payload) {
-      return Response.json({ message: "Sesi tidak valid atau token kedaluwarsa" }, { status: 401 })
-    }
+    const payload = await wajibAuth(req)
 
     let whereCondition = {}
 
@@ -156,7 +120,10 @@ export async function GET(req: Request) {
 
     return Response.json(riwayatAbsen)
   } catch (error) {
+    const guard = responGuard(error)
+    if (guard) return guard
+
     console.error("Gagal memuat rekap data absensi di tingkat database:", error)
-    return Response.json({ message: "Gagal mengambil data riwayat" }, { status: 500 })
+    return Response.json({ message: "Gagal mengambil riwayat" }, { status: 500 })
   }
 }
