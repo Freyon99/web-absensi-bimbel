@@ -1,6 +1,6 @@
-"use client";
+"use client"
 
-import { useEffect } from "react";
+import { useEffect } from "react"
 import {
   getRemainingSessionTime,
   isLoggedIn,
@@ -8,81 +8,75 @@ import {
   LAST_ACTIVITY_KEY,
   SESSION_UPDATED_EVENT,
   touchSession,
-} from "@/lib/session";
+} from "@/lib/session"
 
-const ACTIVITY_THROTTLE_MS = 30 * 1000;
-const ACTIVITY_EVENTS = [
-  "click",
-  "keydown",
-  "mousemove",
-  "scroll",
-  "touchstart",
-] as const;
+const ACTIVITY_THROTTLE_MS = 30 * 1000
+const ACTIVITY_EVENTS = ["click", "keydown", "mousemove", "scroll", "touchstart"] as const
 
 export function SessionTimeoutManager() {
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    let lastRecordedActivity = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let lastRecordedActivity = 0
 
     const logoutBecauseIdle = () => {
-      void logout();
-    };
+      void logout()
+    }
 
     const scheduleLogout = () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId)
 
-      if (!isLoggedIn()) return;
+      if (!isLoggedIn()) return
 
       if (!localStorage.getItem(LAST_ACTIVITY_KEY)) {
-        touchSession();
+        touchSession()
       }
 
-      const remainingTime = getRemainingSessionTime();
+      const remainingTime = getRemainingSessionTime()
       if (remainingTime <= 0) {
-        logoutBecauseIdle();
-        return;
+        logoutBecauseIdle()
+        return
       }
 
-      timeoutId = setTimeout(logoutBecauseIdle, remainingTime);
-    };
+      timeoutId = setTimeout(logoutBecauseIdle, remainingTime)
+    }
 
     const handleActivity = () => {
-      if (!isLoggedIn()) return;
+      if (!isLoggedIn()) return
       if (getRemainingSessionTime() <= 0) {
-        logoutBecauseIdle();
-        return;
+        logoutBecauseIdle()
+        return
       }
 
-      const now = Date.now();
-      if (now - lastRecordedActivity < ACTIVITY_THROTTLE_MS) return;
+      const now = Date.now()
+      if (now - lastRecordedActivity < ACTIVITY_THROTTLE_MS) return
 
-      lastRecordedActivity = now;
-      touchSession();
-      scheduleLogout();
-    };
+      lastRecordedActivity = now
+      touchSession()
+      scheduleLogout()
+    }
 
-    scheduleLogout();
+    scheduleLogout()
 
     ACTIVITY_EVENTS.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { passive: true });
-    });
+      window.addEventListener(eventName, handleActivity, { passive: true })
+    })
 
-    window.addEventListener("storage", scheduleLogout);
-    window.addEventListener("focus", scheduleLogout);
-    window.addEventListener(SESSION_UPDATED_EVENT, scheduleLogout);
+    window.addEventListener("storage", scheduleLogout)
+    window.addEventListener("focus", scheduleLogout)
+    window.addEventListener(SESSION_UPDATED_EVENT, scheduleLogout)
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId)
 
       ACTIVITY_EVENTS.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity);
-      });
+        window.removeEventListener(eventName, handleActivity)
+      })
 
-      window.removeEventListener("storage", scheduleLogout);
-      window.removeEventListener("focus", scheduleLogout);
-      window.removeEventListener(SESSION_UPDATED_EVENT, scheduleLogout);
-    };
-  }, []);
+      window.removeEventListener("storage", scheduleLogout)
+      window.removeEventListener("focus", scheduleLogout)
+      window.removeEventListener(SESSION_UPDATED_EVENT, scheduleLogout)
+    }
+  }, [])
 
-  return null;
+  return null
 }

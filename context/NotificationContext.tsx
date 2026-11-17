@@ -1,71 +1,51 @@
-"use client";
+"use client"
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react"
 
 interface NotificationType {
-  show: boolean;
-  title: string;
-  message: string;
-  isSuccess: boolean;
-  isConfirm?: boolean;
-  onConfirm?: () => void;
-  confirmText?: string;
+  show: boolean
+  title: string
+  message: string
+  isSuccess: boolean
+  isConfirm?: boolean
+  onConfirm?: () => void
+  confirmText?: string
 }
 
 interface NotificationContextType {
-  showNotification: (
-    title: string,
-    message: string,
-    isSuccess?: boolean
-  ) => void;
+  showNotification: (title: string, message: string, isSuccess?: boolean) => void
 
-  showConfirm: (
-    title: string,
-    message: string,
-    onConfirm: () => void,
-    confirmText?: string
-  ) => void;
+  showConfirm: (title: string, message: string, onConfirm: () => void, confirmText?: string) => void
 
-  hideNotification: () => void;
+  hideNotification: () => void
 
-  setIsLoadingGlobal: (loading: boolean) => void;
+  setIsLoadingGlobal: (loading: boolean) => void
 }
 
-const NotificationContext = createContext<
-  NotificationContextType | undefined
->(undefined);
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
 
-export function NotificationProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notif, setNotif] = useState<NotificationType>({
     show: false,
     title: "",
     message: "",
     isSuccess: false,
-  });
+  })
 
-  const [isLoadingGlobal, setIsLoadingGlobal] =
-    useState(false);
+  const [isLoadingGlobal, setIsLoadingGlobal] = useState(false)
 
   // =========================
   // NOTIFIKASI BIASA
   // =========================
-  const showNotification = (
-    title: string,
-    message: string,
-    isSuccess = true
-  ) => {
+  const showNotification = (title: string, message: string, isSuccess = true) => {
     setNotif({
       show: true,
       title,
       message,
       isSuccess,
       isConfirm: false,
-    });
-  };
+    })
+  }
 
   // =========================
   // POPUP KONFIRMASI GENERIC
@@ -74,7 +54,7 @@ export function NotificationProvider({
     title: string,
     message: string,
     onConfirm: () => void,
-    confirmText = "Ya, Lanjutkan"
+    confirmText = "Ya, Lanjutkan",
   ) => {
     setNotif({
       show: true,
@@ -84,8 +64,8 @@ export function NotificationProvider({
       isConfirm: true,
       onConfirm,
       confirmText,
-    });
-  };
+    })
+  }
 
   // =========================
   // TUTUP POPUP
@@ -94,8 +74,8 @@ export function NotificationProvider({
     setNotif((prev) => ({
       ...prev,
       show: false,
-    }));
-  };
+    }))
+  }
 
   return (
     <NotificationContext.Provider
@@ -124,13 +104,9 @@ export function NotificationProvider({
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#0F3D8C]"></div>
 
             <div>
-              <h4 className="text-sm font-bold text-gray-900">
-                Memuat Sesi...
-              </h4>
+              <h4 className="text-sm font-bold text-gray-900">Memuat Sesi...</h4>
 
-              <p className="text-xs text-gray-400 mt-0.5">
-                Harap tunggu sebentar
-              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Harap tunggu sebentar</p>
             </div>
           </div>
         </div>
@@ -146,26 +122,18 @@ export function NotificationProvider({
                 notif.isConfirm
                   ? "bg-red-100 text-red-600"
                   : notif.isSuccess
-                  ? "bg-emerald-100 text-emerald-600"
-                  : "bg-red-100 text-red-600"
+                    ? "bg-emerald-100 text-emerald-600"
+                    : "bg-red-100 text-red-600"
               }`}
             >
-              {notif.isConfirm
-                ? "!"
-                : notif.isSuccess
-                ? "✓"
-                : "!"}
+              {notif.isConfirm ? "!" : notif.isSuccess ? "✓" : "!"}
             </div>
 
             {/* TITLE */}
-            <h3 className="text-lg font-bold text-gray-900 mb-1">
-              {notif.title}
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{notif.title}</h3>
 
             {/* MESSAGE */}
-            <p className="text-sm text-gray-500 mb-5">
-              {notif.message}
-            </p>
+            <p className="text-sm text-gray-500 mb-5">{notif.message}</p>
 
             {/* CONFIRM */}
             {notif.isConfirm ? (
@@ -179,8 +147,8 @@ export function NotificationProvider({
 
                 <button
                   onClick={() => {
-                    hideNotification();
-                    notif.onConfirm?.();
+                    hideNotification()
+                    notif.onConfirm?.()
                   }}
                   className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition"
                 >
@@ -203,17 +171,15 @@ export function NotificationProvider({
         </div>
       )}
     </NotificationContext.Provider>
-  );
+  )
 }
 
 export function useNotification() {
-  const context = useContext(NotificationContext);
+  const context = useContext(NotificationContext)
 
   if (!context) {
-    throw new Error(
-      "useNotification harus dibungkus di dalam NotificationProvider"
-    );
+    throw new Error("useNotification harus dibungkus di dalam NotificationProvider")
   }
 
-  return context;
+  return context
 }

@@ -110,7 +110,11 @@ export function normalisasiKelas(nilai: string): { ok: boolean; value?: Kelas; p
   return { ok: true, value }
 }
 
-export function normalisasiPembayaran(nilai: string): { ok: boolean; value: string; pesan?: string } {
+export function normalisasiPembayaran(nilai: string): {
+  ok: boolean
+  value: string
+  pesan?: string
+} {
   const teks = nilai.trim().toUpperCase()
   if (!teks) return { ok: true, value: "BELUM LUNAS" }
 
@@ -244,7 +248,7 @@ export function parseFileMurid(namaFile: string, buffer: Uint8Array): string[][]
   })
 
   const baris = mentah.map((barisMentah) =>
-    Array.isArray(barisMentah) ? barisMentah.map(normalisasiTeks) : []
+    Array.isArray(barisMentah) ? barisMentah.map(normalisasiTeks) : [],
   )
 
   while (baris.length > 0 && baris[baris.length - 1].every((sel) => sel === "")) {

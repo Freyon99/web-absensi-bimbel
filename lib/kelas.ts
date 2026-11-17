@@ -15,6 +15,6 @@ export const KELAS_OPTIONS = [
   "SMK_1",
   "SMK_2",
   "SMK_3",
-] as const;
+] as const
 
-export type Kelas = (typeof KELAS_OPTIONS)[number];
+export type Kelas = (typeof KELAS_OPTIONS)[number]

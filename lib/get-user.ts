@@ -14,17 +14,13 @@ export async function getUserFromHeader() {
   const headersList = await headers()
 
   const authorization = headersList.get("authorization")
-  const token =
-    authorization?.split(" ")[1] ?? (await cookies()).get("token")?.value
+  const token = authorization?.split(" ")[1] ?? (await cookies()).get("token")?.value
 
   if (!token) {
     throw new Error("Unauthorized")
   }
 
-  const decoded = jwt.verify(
-    token,
-    JWT_SECRET
-  ) as JwtPayload
+  const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload
 
   // 2. Cari data lengkap user ke database berdasarkan id dari token
   const user = await prisma.pengguna.findUnique({

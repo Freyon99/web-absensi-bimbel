@@ -7,10 +7,7 @@ const ubahAbsensiSchema = z.object({
   status: z.enum(["HADIR", "IZIN", "SAKIT", "ALPHA"]),
 })
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await wajibAdmin(req)
 
@@ -55,7 +52,7 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return Response.json(
         { message: "Format data tidak valid", errors: error.issues },
-        { status: 400 }
+        { status: 400 },
       )
     }
 

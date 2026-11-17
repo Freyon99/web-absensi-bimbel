@@ -1,8 +1,10 @@
 import { jwtVerify } from "jose"
 
+export type Peran = "ADMIN" | "GURU"
+
 export interface AuthPayload {
   id: string
-  role: string // "ADMIN" | "GURU"
+  role: Peran
 }
 
 export class AutentikasiError extends Error {
@@ -37,19 +39,20 @@ export async function wajibAuth(req: Request): Promise<AuthPayload> {
   }
 
   const id = (payload.id || payload.userId) as string | undefined
-  const role = ((payload.peran || payload.role) as string | undefined)?.toUpperCase()
+  const peranMentah = (payload.peran || payload.role) as string | undefined
+  const role = peranMentah?.toUpperCase()
 
-  if (!id || !role) {
+  if (!id || (role !== "ADMIN" && role !== "GURU")) {
     throw new AutentikasiError("Token tidak valid", 401)
   }
 
   // Penjaga CSRF: browser modern mengirim `Sec-Fetch-Site`. Request lintas situs
   // ke endpoint yang mengubah data ditolak. Cookie SameSite=Strict tetap lapisan
   // utama; ini menutup kasus browser/proxy yang tidak mengirimkan header itu.
-  const method = req.method.toUpperCase();
-  const mengubahData = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+  const method = req.method.toUpperCase()
+  const mengubahData = method !== "GET" && method !== "HEAD" && method !== "OPTIONS"
   if (mengubahData && req.headers.get("sec-fetch-site") === "cross-site") {
-    throw new AutentikasiError("Akses ditolak: request lintas situs", 403);
+    throw new AutentikasiError("Akses ditolak: request lintas situs", 403)
   }
 
   return { id, role }
@@ -116,7 +119,7 @@ export function opsiCookie(req: Request): string {
 export function setCookieToken(req: Request, res: Response, token: string) {
   res.headers.append(
     "Set-Cookie",
-    `${NAMA_COOKIE_TOKEN}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${MAX_AGE_TOKEN}${opsiCookie(req)}`
+    `${NAMA_COOKIE_TOKEN}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${MAX_AGE_TOKEN}${opsiCookie(req)}`,
   )
 }
 

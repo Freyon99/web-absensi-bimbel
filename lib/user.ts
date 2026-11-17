@@ -4,11 +4,11 @@
  * updatedAt) tidak ikut bocor ke respons.
  */
 export function bentukUserPublik(user: {
-  id: string;
-  nama: string;
-  email: string;
-  peran: string;
-  noHp: string | null;
+  id: string
+  nama: string
+  email: string
+  peran: string
+  noHp: string | null
 }) {
   return {
     id: user.id,
@@ -16,5 +16,5 @@ export function bentukUserPublik(user: {
     email: user.email,
     peran: user.peran,
     noHp: user.noHp,
-  };
+  }
 }

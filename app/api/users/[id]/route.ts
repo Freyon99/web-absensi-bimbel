@@ -28,11 +28,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const userDiperbarui = await prisma.pengguna.update({
       where: { id },
       data,
-      select: { 
-        nama: true, 
-        email: true, 
+      select: {
+        nama: true,
+        email: true,
         peran: true,
-        noHp: true // ➕ Izinkan noHp terpilih agar muncul setelah diupdate
+        noHp: true, // ➕ Izinkan noHp terpilih agar muncul setelah diupdate
       },
     })
 
@@ -42,7 +42,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (guard) return guard
 
     if (error instanceof z.ZodError) {
-      return Response.json({ message: "Format data tidak valid", errors: error.issues }, { status: 400 })
+      return Response.json(
+        { message: "Format data tidak valid", errors: error.issues },
+        { status: 400 },
+      )
     }
     return Response.json({ message: "Gagal memperbarui pengguna" }, { status: 500 })
   }

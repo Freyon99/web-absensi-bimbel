@@ -74,8 +74,7 @@ export async function GET(req: Request) {
       return new Response(isi as unknown as BodyInit, {
         headers: {
           ...headerDasar,
-          "Content-Type":
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       })
     }

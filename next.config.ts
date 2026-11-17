@@ -1,8 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
+
+const devOrigins = (process.env.ALLOWED_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean)
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  allowedDevOrigins: ["192.168.2.120", '127.0.0.1'],
+  // Origin tambahan untuk `next dev` (mis. ponsel di LAN). Dari env supaya
+  // alamat IP lokal tidak hardcoded di repo.
+  allowedDevOrigins: devOrigins.length > 0 ? devOrigins : undefined,
   async headers() {
     // Content-Security-Policy dipasang di proxy.ts (butuh nonce per request).
     return [
@@ -20,8 +26,8 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-    ];
+    ]
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

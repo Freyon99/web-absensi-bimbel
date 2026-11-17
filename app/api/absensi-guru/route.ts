@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     if (sudahAbsenHariIni) {
       return Response.json(
         { message: "Anda sudah melakukan Absen Datang hari ini. Batas absensi adalah 1x sehari." },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -36,7 +36,10 @@ export async function POST(req: Request) {
       data: { guruId: payload.id },
     })
 
-    return Response.json({ message: "Absen datang berhasil dicatat", data: logAbsen }, { status: 201 })
+    return Response.json(
+      { message: "Absen datang berhasil dicatat", data: logAbsen },
+      { status: 201 },
+    )
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
@@ -73,8 +76,11 @@ export async function PUT(req: Request) {
 
     if (!absenHariIni) {
       return Response.json(
-        { message: "Gagal: Anda belum melakukan Absen Datang hari ini, atau Anda sudah melakukan Absen Pulang." },
-        { status: 400 }
+        {
+          message:
+            "Gagal: Anda belum melakukan Absen Datang hari ini, atau Anda sudah melakukan Absen Pulang.",
+        },
+        { status: 400 },
       )
     }
 

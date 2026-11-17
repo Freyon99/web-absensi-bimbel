@@ -1,7 +1,7 @@
-import prisma from "@/lib/prisma";
-import { responGuard, wajibAuth } from "@/lib/api-guard";
-import { Kelas, Prisma } from "@prisma/client";
-import { KELAS_OPTIONS } from "@/lib/kelas";
+import prisma from "@/lib/prisma"
+import { responGuard, wajibAuth } from "@/lib/api-guard"
+import { Kelas, Prisma } from "@prisma/client"
+import { KELAS_OPTIONS } from "@/lib/kelas"
 
 /**
  * Ringkasan murid untuk kartu statistik & grafik admin. Filter bisa menyusul
@@ -11,23 +11,23 @@ import { KELAS_OPTIONS } from "@/lib/kelas";
  */
 export async function GET(req: Request) {
   try {
-    await wajibAuth(req);
+    await wajibAuth(req)
 
-    const params = new URL(req.url).searchParams;
-    const where: Prisma.MuridWhereInput = {};
+    const params = new URL(req.url).searchParams
+    const where: Prisma.MuridWhereInput = {}
 
-    const kelas = params.get("kelas");
+    const kelas = params.get("kelas")
     if (kelas && (KELAS_OPTIONS as readonly string[]).includes(kelas)) {
-      where.kelas = kelas as Kelas;
+      where.kelas = kelas as Kelas
     }
 
-    const pembayaran = params.get("pembayaran");
-    if (pembayaran) where.pembayaran = pembayaran;
+    const pembayaran = params.get("pembayaran")
+    if (pembayaran) where.pembayaran = pembayaran
 
-    const cari = params.get("cari");
-    if (cari) where.namaLengkap = { contains: cari, mode: "insensitive" };
+    const cari = params.get("cari")
+    if (cari) where.namaLengkap = { contains: cari, mode: "insensitive" }
 
-    const banding = Object.keys(where).length > 0 ? where : undefined;
+    const banding = Object.keys(where).length > 0 ? where : undefined
 
     const [total, daftarKelas, daftarPembayaran] = await Promise.all([
       prisma.murid.count({ where: banding }),
@@ -41,13 +41,13 @@ export async function GET(req: Request) {
         where: banding,
         _count: { _all: true },
       }),
-    ]);
+    ])
 
-    const perKelas: Record<string, number> = {};
-    for (const item of daftarKelas) perKelas[item.kelas] = item._count._all;
+    const perKelas: Record<string, number> = {}
+    for (const item of daftarKelas) perKelas[item.kelas] = item._count._all
 
-    const perPembayaran: Record<string, number> = {};
-    for (const item of daftarPembayaran) perPembayaran[item.pembayaran] = item._count._all;
+    const perPembayaran: Record<string, number> = {}
+    for (const item of daftarPembayaran) perPembayaran[item.pembayaran] = item._count._all
 
     return Response.json({
       total,
@@ -55,15 +55,12 @@ export async function GET(req: Request) {
       perPembayaran,
       lunas: perPembayaran["LUNAS"] ?? 0,
       belumLunas: perPembayaran["BELUM LUNAS"] ?? 0,
-    });
+    })
   } catch (error) {
-    const guard = responGuard(error);
-    if (guard) return guard;
+    const guard = responGuard(error)
+    if (guard) return guard
 
-    console.error("DETAIL ERROR RINGKASAN MURID:", error);
-    return Response.json(
-      { message: "Gagal mengambil ringkasan murid" },
-      { status: 500 }
-    );
+    console.error("DETAIL ERROR RINGKASAN MURID:", error)
+    return Response.json({ message: "Gagal mengambil ringkasan murid" }, { status: 500 })
   }
 }

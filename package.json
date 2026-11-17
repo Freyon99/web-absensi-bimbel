@@ -6,20 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "cek:konsistensi": "node scripts/cek-konsistensi.mjs",
     "test:e2e": "node scripts/uji-e2e.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "@supabase/supabase-js": "^2.105.4",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "dayjs": "^1.11.20",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "next": "^16.4.6",
-    "next-auth": "^4.24.14",
     "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -29,13 +30,15 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.6",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "deepmerge-ts": "^8.0.1"

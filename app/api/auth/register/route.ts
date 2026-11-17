@@ -1,4 +1,4 @@
-import  prisma  from "@/lib/prisma"
+import prisma from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
 import { bentukUserPublik } from "@/lib/user"
@@ -55,7 +55,6 @@ export async function POST(req: Request) {
       token,
       user: safeUser, // noHp otomatis ikut terbawa di sini
     })
-
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
@@ -64,7 +63,7 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return Response.json(
         { message: "Format data tidak valid", errors: error.issues },
-        { status: 400 }
+        { status: 400 },
       )
     }
 

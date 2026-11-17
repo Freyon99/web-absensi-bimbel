@@ -1,78 +1,83 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { clearSession, logout, touchSession } from "@/lib/session";
+import Image from "next/image"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { clearSession, logout, touchSession } from "@/lib/session"
 
 export default function Home() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); 
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   // State Manajemen Menu Profil & Sesi User Aktif
-  const [userSession, setUserSession] = useState<{ nama: string; peran: string } | null>(null);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [userSession, setUserSession] = useState<{ nama: string; peran: string } | null>(null)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   // State Manajemen Pop-up Notifikasi & Validasi Logout
   const [notification, setNotification] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    isSuccess: boolean;
-    isConfirmLogout?: boolean;
+    show: boolean
+    title: string
+    message: string
+    isSuccess: boolean
+    isConfirmLogout?: boolean
   }>({
     show: false,
     title: "",
     message: "",
     isSuccess: false,
     isConfirmLogout: false,
-  });
+  })
 
   // Memeriksa sesi login aktif saat pertama kali halaman dimuat.
   // Sesi hidup di cookie HttpOnly, jadi validitasnya dikonfirmasi ke server.
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (!savedUser) return;
+    const savedUser = localStorage.getItem("user")
+    if (!savedUser) return
 
-    (async () => {
+    ;(async () => {
       try {
-        const res = await fetch("/api/me");
+        const res = await fetch("/api/me")
         if (!res.ok) {
-          clearSession();
-          return;
+          clearSession()
+          return
         }
 
-        const data = await res.json();
-        setUserSession(data.user);
+        const data = await res.json()
+        setUserSession(data.user)
 
         // PROTEKSI KLIEN: jika user membuka "/" padahal sesi masih aktif,
         // langsung diarahkan ke dashboard hak akses masing-masing.
-        router.replace(data.user.peran === "ADMIN" ? "/admin" : "/dashboard");
+        router.replace(data.user.peran === "ADMIN" ? "/admin" : "/dashboard")
       } catch {
-        clearSession();
+        clearSession()
       }
-    })();
-  }, [router]);
+    })()
+  }, [router])
 
   // Fungsi pembantu untuk memicu munculnya Pop-up
-  const showPopup = (title: string, message: string, isSuccess: boolean = false, isConfirmLogout: boolean = false) => {
-    setNotification({ show: true, title, message, isSuccess, isConfirmLogout });
-  };
+  const showPopup = (
+    title: string,
+    message: string,
+    isSuccess: boolean = false,
+    isConfirmLogout: boolean = false,
+  ) => {
+    setNotification({ show: true, title, message, isSuccess, isConfirmLogout })
+  }
 
   const handleLogin = async () => {
     if (!email) {
-      showPopup("Peringatan", "Email / username wajib diisi", false);
-      return;
+      showPopup("Peringatan", "Email / username wajib diisi", false)
+      return
     }
     if (!password) {
-      showPopup("Peringatan", "Password wajib diisi", false);
-      return;
+      showPopup("Peringatan", "Password wajib diisi", false)
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
       // 1. Tembak API Login Backend
@@ -80,64 +85,68 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-      });
+      })
 
-      const data = await res.json();
+      const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.message || "Gagal masuk");
+        throw new Error(data.message || "Gagal masuk")
       }
 
       // 2. Memicu pop-up selamat datang dinamis dengan nama user asli dari DB
-      showPopup("Berhasil", `Selamat datang kembali, ${data.user.nama}!`, true);
+      showPopup("Berhasil", `Selamat datang kembali, ${data.user.nama}!`, true)
 
       // 3. Simpan penanda sesi (token tetap di cookie HttpOnly server)
-      localStorage.setItem("user", JSON.stringify(data.user));
-      
+      localStorage.setItem("user", JSON.stringify(data.user))
+
       // 4. Set Cookie Native Max-Age (Browser akan otomatis menghapus sesi ini tepat setelah 2 jam)
-      touchSession();
-      
-      setUserSession(data.user);
+      touchSession()
+
+      setUserSession(data.user)
 
       // Jeda 1.5 detik agar popup sukses terlihat jelas sebelum dialihkan
       setTimeout(() => {
         if (data.user.peran === "ADMIN") {
-          router.push("/admin");
+          router.push("/admin")
         } else {
-          router.push("/dashboard");
+          router.push("/dashboard")
         }
-        router.refresh();
-      }, 1200);
-
+        router.refresh()
+      }, 1200)
     } catch (err) {
-      showPopup("Login Gagal", err instanceof Error ? err.message : "Gagal masuk", false);
+      showPopup("Login Gagal", err instanceof Error ? err.message : "Gagal masuk", false)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
       // Password tidak disimpan di state setelah percobaan login selesai.
-      setPassword("");
+      setPassword("")
     }
-  };
+  }
 
   // Memicu modal konfirmasi logout kustom
   const triggerLogoutValidation = () => {
-    setShowProfileMenu(false);
+    setShowProfileMenu(false)
     showPopup(
       "Konfirmasi Keluar",
       "Apakah Anda yakin ingin keluar dari sistem Aksara Bimbel?",
       false,
-      true
-    );
-  };
+      true,
+    )
+  }
 
   // Eksekusi pembersihan total sesi (Hapus data & Cookie)
   const executeLogout = () => {
-    setNotification({ show: false, title: "", message: "", isSuccess: false, isConfirmLogout: false });
-    void logout();
-  };
+    setNotification({
+      show: false,
+      title: "",
+      message: "",
+      isSuccess: false,
+      isConfirmLogout: false,
+    })
+    void logout()
+  }
 
   return (
     <div className="relative flex min-h-dvh flex-col justify-between overflow-x-hidden bg-[#FFFDF8]">
-      
       {/* Latar dekoratif: gelombang lembut (murni visual) */}
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         {/* Background Gelombang Responsif */}
@@ -176,9 +185,11 @@ export default function Home() {
               <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl bg-white p-2 shadow-2xl border border-gray-100 z-50 animate-scale-in">
                 <div className="border-b border-gray-100 px-3 py-2 text-left">
                   <p className="text-sm font-bold text-gray-900 truncate">{userSession.nama}</p>
-                  <p className="text-xs text-gray-400 capitalize">{userSession.peran.toLowerCase()}</p>
+                  <p className="text-xs text-gray-400 capitalize">
+                    {userSession.peran.toLowerCase()}
+                  </p>
                 </div>
-                <button 
+                <button
                   onClick={() => alert("Fitur pengaturan profil segera hadir!")}
                   className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 >
@@ -197,8 +208,9 @@ export default function Home() {
       )}
 
       {/* Konten Utama Form: Otomatis blur jika modal pop-up tampil */}
-      <div className={`relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 transition-all duration-300 ${notification.show ? "blur-md pointer-events-none" : ""}`}>
-        
+      <div
+        className={`relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 lg:px-8 transition-all duration-300 ${notification.show ? "blur-md pointer-events-none" : ""}`}
+      >
         {/* Kontainer Logo & Judul */}
         <div className="flex flex-col items-center text-center">
           <div
@@ -218,11 +230,17 @@ export default function Home() {
             />
           </div>
 
-          <h1 className="text-3xl font-bold tracking-wide text-[#0F3D8C] sm:text-4xl md:text-5xl animate-fade-up" style={{ animationDelay: "0.15s" }}>
+          <h1
+            className="text-3xl font-bold tracking-wide text-[#0F3D8C] sm:text-4xl md:text-5xl animate-fade-up"
+            style={{ animationDelay: "0.15s" }}
+          >
             Aksara Bimbel
           </h1>
 
-          <p className="mt-1 sm:mt-3 text-xs sm:text-sm text-[#7A7A7A] animate-fade-up" style={{ animationDelay: "0.25s" }}>
+          <p
+            className="mt-1 sm:mt-3 text-xs sm:text-sm text-[#7A7A7A] animate-fade-up"
+            style={{ animationDelay: "0.25s" }}
+          >
             Belajar Asik Bersama Aksara
           </p>
         </div>
@@ -232,7 +250,6 @@ export default function Home() {
           className="mt-6 sm:mt-10 w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-8 shadow-xl sm:shadow-2xl transition-shadow duration-300 animate-fade-up hover:shadow-[0_24px_60px_-15px_rgba(15,61,140,0.35)]"
           style={{ animationDelay: "0.35s" }}
         >
-          
           <div className="mb-4 sm:mb-5 group animate-fade-up" style={{ animationDelay: "0.45s" }}>
             <label className="mb-1.5 block text-xs sm:text-sm font-medium text-[#0F3D8C] transition-colors duration-200 group-focus-within:text-[#0B2E69]">
               Email / Username
@@ -270,14 +287,17 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mb-4 sm:mb-5 flex justify-end text-xs sm:text-sm animate-fade-up" style={{ animationDelay: "0.65s" }}>
+          <div
+            className="mb-4 sm:mb-5 flex justify-end text-xs sm:text-sm animate-fade-up"
+            style={{ animationDelay: "0.65s" }}
+          >
             <button
               type="button"
               onClick={() =>
                 showPopup(
                   "Lupa Password",
                   "Reset password hanya bisa dilakukan admin. Silakan hubungi admin Aksara Bimbel untuk mengatur ulang password Anda.",
-                  false
+                  false,
                 )
               }
               className="inline-block text-[#0F3D8C] transition-transform duration-200 hover:translate-x-0.5 hover:underline"
@@ -296,16 +316,31 @@ export default function Home() {
               <span className="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
               <span className="relative flex items-center justify-center gap-2">
                 {isLoading && (
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-90"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
                   </svg>
                 )}
                 {isLoading ? "Memproses..." : "Login"}
               </span>
             </button>
           </div>
-
         </div>
       </div>
 
@@ -319,23 +354,20 @@ export default function Home() {
                 : "animate-pop-shake"
             }`}
           >
-            
             {/* Simbol Ikon Status */}
             <div
               className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold animate-scale-in ${
-                notification.isSuccess ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+                notification.isSuccess
+                  ? "bg-emerald-100 text-emerald-600"
+                  : "bg-red-100 text-red-600"
               }`}
               style={{ animationDelay: "0.1s" }}
             >
               {notification.isSuccess ? "✓" : "!"}
             </div>
 
-            <h3 className="text-lg font-bold text-gray-900 mb-1">
-              {notification.title}
-            </h3>
-            <p className="text-sm text-gray-500 mb-5">
-              {notification.message}
-            </p>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{notification.title}</h3>
+            <p className="text-sm text-gray-500 mb-5">{notification.message}</p>
 
             {/* Logika Kondisi Tombol Opsi */}
             {notification.isConfirmLogout ? (
@@ -367,5 +399,5 @@ export default function Home() {
         </div>
       )}
     </div>
-  );
+  )
 }

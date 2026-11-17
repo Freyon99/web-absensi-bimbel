@@ -21,10 +21,7 @@ const updateMuridSchema = z.object({
 })
 
 // GET DETAIL MURID
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await wajibAuth(req)
 
@@ -35,10 +32,7 @@ export async function GET(
     })
 
     if (!murid) {
-      return Response.json(
-        { message: "Murid tidak ditemukan" },
-        { status: 404 }
-      )
+      return Response.json({ message: "Murid tidak ditemukan" }, { status: 404 })
     }
 
     return Response.json(murid)
@@ -46,18 +40,12 @@ export async function GET(
     const guard = responGuard(error)
     if (guard) return guard
 
-    return Response.json(
-      { message: "Gagal mengambil data murid" },
-      { status: 500 }
-    )
+    return Response.json({ message: "Gagal mengambil data murid" }, { status: 500 })
   }
 }
 
 // UPDATE MURID
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await wajibAdmin(req)
 
@@ -84,27 +72,21 @@ export async function PUT(
           message: "Format data tidak valid",
           errors: error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     return Response.json(
       {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Gagal update murid",
+        message: error instanceof Error ? error.message : "Gagal update murid",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 // HAPUS MURID
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await wajibAdmin(req)
 

@@ -67,10 +67,9 @@ export async function POST(req: Request) {
     } catch {
       return Response.json(
         {
-          message:
-            "File tidak ditemukan. Kirim file pada kolom 'file' dengan multipart/form-data.",
+          message: "File tidak ditemukan. Kirim file pada kolom 'file' dengan multipart/form-data.",
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -79,7 +78,7 @@ export async function POST(req: Request) {
     if (!entri || typeof entri === "string") {
       return Response.json(
         { message: "File tidak ditemukan. Unggah file pada kolom 'file'." },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -107,17 +106,16 @@ export async function POST(req: Request) {
     if (baris.length < 2) {
       return Response.json(
         {
-          message:
-            "File tidak memiliki baris data. Baris pertama harus berisi header kolom.",
+          message: "File tidak memiliki baris data. Baris pertama harus berisi header kolom.",
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     if (baris.length - 1 > BARIS_MAKS_FILE) {
       return Response.json(
         { message: `Jumlah baris melewati batas maksimal ${BARIS_MAKS_FILE} baris.` },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -125,10 +123,9 @@ export async function POST(req: Request) {
     if (jumlahHeaderDikenali(baris[0]) === 0) {
       return Response.json(
         {
-          message:
-            "Header kolom tidak dikenali. Unduh template import untuk format yang benar.",
+          message: "Header kolom tidak dikenali. Unduh template import untuk format yang benar.",
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -150,9 +147,8 @@ export async function POST(req: Request) {
       muridLama
         .filter((item) => item.noHpOrangTua.trim() !== "")
         .map(
-          (item) =>
-            `${normalisasiKunci(item.namaLengkap)}|${normalisasiKunci(item.noHpOrangTua)}`
-        )
+          (item) => `${normalisasiKunci(item.namaLengkap)}|${normalisasiKunci(item.noHpOrangTua)}`,
+        ),
     )
 
     // =========================
@@ -192,7 +188,10 @@ export async function POST(req: Request) {
 
       const pembayaran = normalisasiPembayaran(nilai.pembayaran)
       if (!pembayaran.ok) {
-        kendala.push({ row: nomorBaris, message: pembayaran.pesan || "Status pembayaran tidak valid." })
+        kendala.push({
+          row: nomorBaris,
+          message: pembayaran.pesan || "Status pembayaran tidak valid.",
+        })
         continue
       }
 
@@ -210,8 +209,7 @@ export async function POST(req: Request) {
         guruId = cocok
       }
 
-      const kunciDuplikat =
-        `${normalisasiKunci(nilai.namaLengkap)}|${normalisasiKunci(nilai.noHpOrangTua)}`
+      const kunciDuplikat = `${normalisasiKunci(nilai.namaLengkap)}|${normalisasiKunci(nilai.noHpOrangTua)}`
 
       if (kunciMuridLama.has(kunciDuplikat)) {
         dilewatiDuplikat++
@@ -254,7 +252,7 @@ export async function POST(req: Request) {
           summary: { total: totalBaris, success: 0, skipped: dilewatiDuplikat, failed: gagal },
           errors: kendala.slice(0, 50),
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 

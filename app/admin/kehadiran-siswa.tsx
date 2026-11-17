@@ -1,121 +1,142 @@
-"use client";
+"use client"
 
-import { useEffect, useState, FormEvent } from "react";
-import { fetchApi } from "@/lib/api-client";
-import { KELAS_OPTIONS } from "@/lib/kelas";
+import { useEffect, useState, FormEvent } from "react"
+import { fetchApi } from "@/lib/api-client"
+import { KELAS_OPTIONS } from "@/lib/kelas"
 
 interface MuridRingkas {
-  id: string;
-  namaLengkap: string;
-  namaPanggilan: string;
-  kelas: string;
+  id: string
+  namaLengkap: string
+  namaPanggilan: string
+  kelas: string
 }
 
 interface LogAbsensiMurid {
-  id: string;
-  tanggal: string;
-  status: string;
-  murid: { id: string; namaLengkap: string; kelas: string };
-  guru: { nama: string } | null;
+  id: string
+  tanggal: string
+  status: string
+  murid: { id: string; namaLengkap: string; kelas: string }
+  guru: { nama: string } | null
 }
 
 const STATUS_ABSENSI = [
-  { value: "HADIR", label: "Hadir", select: "border-emerald-300 text-emerald-700", badge: "bg-emerald-100 text-emerald-800" },
-  { value: "IZIN", label: "Izin", select: "border-sky-300 text-sky-700", badge: "bg-sky-100 text-sky-800" },
-  { value: "SAKIT", label: "Sakit", select: "border-amber-300 text-amber-700", badge: "bg-amber-100 text-amber-800" },
-  { value: "ALPHA", label: "Alpha", select: "border-rose-300 text-rose-700", badge: "bg-rose-100 text-rose-800" },
-];
+  {
+    value: "HADIR",
+    label: "Hadir",
+    select: "border-emerald-300 text-emerald-700",
+    badge: "bg-emerald-100 text-emerald-800",
+  },
+  {
+    value: "IZIN",
+    label: "Izin",
+    select: "border-sky-300 text-sky-700",
+    badge: "bg-sky-100 text-sky-800",
+  },
+  {
+    value: "SAKIT",
+    label: "Sakit",
+    select: "border-amber-300 text-amber-700",
+    badge: "bg-amber-100 text-amber-800",
+  },
+  {
+    value: "ALPHA",
+    label: "Alpha",
+    select: "border-rose-300 text-rose-700",
+    badge: "bg-rose-100 text-rose-800",
+  },
+]
 
 const STATUS_BADGE_STYLE = Object.fromEntries(
-  STATUS_ABSENSI.map((s) => [s.value, s.badge])
-) as Record<string, string>;
+  STATUS_ABSENSI.map((s) => [s.value, s.badge]),
+) as Record<string, string>
 
-const STATUS_LABEL = Object.fromEntries(
-  STATUS_ABSENSI.map((s) => [s.value, s.label])
-) as Record<string, string>;
+const STATUS_LABEL = Object.fromEntries(STATUS_ABSENSI.map((s) => [s.value, s.label])) as Record<
+  string,
+  string
+>
 
 // Tabel riwayat menampilkan 50 baris per halaman supaya render tetap ringan.
-const BATCH_RIWAYAT = 50;
+const BATCH_RIWAYAT = 50
 // Batas maksimal catatan yang dibolehkan server mengembalikan per rentang.
-const BATAS_RIWAYAT = 2000;
+const BATAS_RIWAYAT = 2000
 
-type ModePeriode = "HARIAN" | "MINGGUAN" | "BULANAN";
+type ModePeriode = "HARIAN" | "MINGGUAN" | "BULANAN"
 
 const MODE_PERIODE_OPTIONS: { value: ModePeriode; label: string }[] = [
   { value: "HARIAN", label: "Harian" },
   { value: "MINGGUAN", label: "Mingguan" },
   { value: "BULANAN", label: "Bulanan" },
-];
+]
 
 function formatKelas(kelas: string) {
-  return kelas.replaceAll("_", " ");
+  return kelas.replaceAll("_", " ")
 }
 
 function mulaiHari(d: Date) {
-  const hasil = new Date(d);
-  hasil.setHours(0, 0, 0, 0);
-  return hasil;
+  const hasil = new Date(d)
+  hasil.setHours(0, 0, 0, 0)
+  return hasil
 }
 
 function akhirHari(d: Date) {
-  const hasil = new Date(d);
-  hasil.setHours(23, 59, 59, 999);
-  return hasil;
+  const hasil = new Date(d)
+  hasil.setHours(23, 59, 59, 999)
+  return hasil
 }
 
 // Pekan dimulai hari Senin (konvensi Indonesia).
 function mulaiMinggu(d: Date) {
-  const hasil = mulaiHari(d);
-  const selisih = (hasil.getDay() + 6) % 7;
-  hasil.setDate(hasil.getDate() - selisih);
-  return hasil;
+  const hasil = mulaiHari(d)
+  const selisih = (hasil.getDay() + 6) % 7
+  hasil.setDate(hasil.getDate() - selisih)
+  return hasil
 }
 
 function akhirMinggu(d: Date) {
-  const hasil = mulaiMinggu(d);
-  hasil.setDate(hasil.getDate() + 6);
-  return akhirHari(hasil);
+  const hasil = mulaiMinggu(d)
+  hasil.setDate(hasil.getDate() + 6)
+  return akhirHari(hasil)
 }
 
 function mulaiBulan(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0)
 }
 
 function akhirBulan(d: Date) {
-  return akhirHari(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  return akhirHari(new Date(d.getFullYear(), d.getMonth() + 1, 0))
 }
 
 function tambahHari(d: Date, selisih: number) {
-  const hasil = new Date(d);
-  hasil.setDate(hasil.getDate() + selisih);
-  return hasil;
+  const hasil = new Date(d)
+  hasil.setDate(hasil.getDate() + selisih)
+  return hasil
 }
 
 function tambahBulan(d: Date, selisih: number) {
-  const hasil = new Date(d);
-  hasil.setMonth(hasil.getMonth() + selisih);
-  return hasil;
+  const hasil = new Date(d)
+  hasil.setMonth(hasil.getMonth() + selisih)
+  return hasil
 }
 
 function keTanggalISO(d: Date) {
-  const bulan = String(d.getMonth() + 1).padStart(2, "0");
-  const tanggal = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${bulan}-${tanggal}`;
+  const bulan = String(d.getMonth() + 1).padStart(2, "0")
+  const tanggal = String(d.getDate()).padStart(2, "0")
+  return `${d.getFullYear()}-${bulan}-${tanggal}`
 }
 
 function formatRentang(mulai: Date, selesai: Date, mode: ModePeriode) {
   if (mode === "MINGGUAN") {
-    const awal = mulai.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+    const awal = mulai.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
     const akhir = selesai.toLocaleDateString("id-ID", {
       day: "numeric",
       month: "short",
       year: "numeric",
-    });
-    return `${awal} – ${akhir}`;
+    })
+    return `${awal} – ${akhir}`
   }
 
   if (mode === "BULANAN") {
-    return selesai.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    return selesai.toLocaleDateString("id-ID", { month: "long", year: "numeric" })
   }
 
   return mulai.toLocaleDateString("id-ID", {
@@ -123,25 +144,25 @@ function formatRentang(mulai: Date, selesai: Date, mode: ModePeriode) {
     day: "numeric",
     month: "long",
     year: "numeric",
-  });
+  })
 }
 
 function dalamRentang(tanggal: string, mulai: Date, selesai: Date) {
-  const d = new Date(tanggal);
-  return d >= mulai && d <= selesai;
+  const d = new Date(tanggal)
+  return d >= mulai && d <= selesai
 }
 
 async function muatRiwayatAbsensi(mulaiISO: string, selesaiISO: string) {
   try {
     // Filter di server: hanya rentang yang sedang dilihat yang dikembalikan.
     const res = await fetchApi(
-      `/api/absensi?tanggalMulai=${mulaiISO}&tanggalSelesai=${selesaiISO}&batas=${BATAS_RIWAYAT}`
-    );
-    if (res.ok) return (await res.json()) as LogAbsensiMurid[];
+      `/api/absensi?tanggalMulai=${mulaiISO}&tanggalSelesai=${selesaiISO}&batas=${BATAS_RIWAYAT}`,
+    )
+    if (res.ok) return (await res.json()) as LogAbsensiMurid[]
   } catch (error) {
-    console.error("Gagal memuat riwayat absensi murid:", error);
+    console.error("Gagal memuat riwayat absensi murid:", error)
   }
-  return null;
+  return null
 }
 
 /**
@@ -151,150 +172,150 @@ async function muatRiwayatAbsensi(mulaiISO: string, selesaiISO: string) {
 export default function KehadiranSiswa({
   showNotification,
 }: {
-  showNotification: (title: string, message: string, isSuccess?: boolean) => void;
+  showNotification: (title: string, message: string, isSuccess?: boolean) => void
 }) {
-  const [kelasAbsensi, setKelasAbsensi] = useState("CALISTUNG");
+  const [kelasAbsensi, setKelasAbsensi] = useState("CALISTUNG")
   // Murid diambil khusus untuk kelas yang sedang dibuka, bukan semua murid.
-  const [muridPerKelas, setMuridPerKelas] = useState<MuridRingkas[]>([]);
-  const [modePeriode, setModePeriode] = useState<ModePeriode>("HARIAN");
-  const [tanggalAktif, setTanggalAktif] = useState(() => keTanggalISO(new Date()));
-  const [riwayatAbsensiMurid, setRiwayatAbsensiMurid] = useState<LogAbsensiMurid[]>([]);
-  const [filterRiwayatKelas, setFilterRiwayatKelas] = useState("");
-  const [filterRiwayatStatus, setFilterRiwayatStatus] = useState("");
-  const [riwayatSearch, setRiwayatSearch] = useState("");
-  const [halamanRiwayat, setHalamanRiwayat] = useState(1);
+  const [muridPerKelas, setMuridPerKelas] = useState<MuridRingkas[]>([])
+  const [modePeriode, setModePeriode] = useState<ModePeriode>("HARIAN")
+  const [tanggalAktif, setTanggalAktif] = useState(() => keTanggalISO(new Date()))
+  const [riwayatAbsensiMurid, setRiwayatAbsensiMurid] = useState<LogAbsensiMurid[]>([])
+  const [filterRiwayatKelas, setFilterRiwayatKelas] = useState("")
+  const [filterRiwayatStatus, setFilterRiwayatStatus] = useState("")
+  const [riwayatSearch, setRiwayatSearch] = useState("")
+  const [halamanRiwayat, setHalamanRiwayat] = useState(1)
 
   // Koreksi absensi hanya untuk admin
-  const [absensiTerpilih, setAbsensiTerpilih] = useState<LogAbsensiMurid | null>(null);
-  const [statusKoreksi, setStatusKoreksi] = useState("HADIR");
-  const [isMenyimpanKoreksi, setIsMenyimpanKoreksi] = useState(false);
+  const [absensiTerpilih, setAbsensiTerpilih] = useState<LogAbsensiMurid | null>(null)
+  const [statusKoreksi, setStatusKoreksi] = useState("HADIR")
+  const [isMenyimpanKoreksi, setIsMenyimpanKoreksi] = useState(false)
 
   // Geser jangkauan tanggal yang sedang dilihat (harian/mingguan/bulanan).
   const geserPeriode = (selisih: number) => {
-    const jarum = new Date(`${tanggalAktif}T00:00:00`);
+    const jarum = new Date(`${tanggalAktif}T00:00:00`)
     const baru =
       modePeriode === "BULANAN"
         ? tambahBulan(jarum, selisih)
-        : tambahHari(jarum, selisih * (modePeriode === "MINGGUAN" ? 7 : 1));
+        : tambahHari(jarum, selisih * (modePeriode === "MINGGUAN" ? 7 : 1))
 
-    setTanggalAktif(keTanggalISO(baru));
-  };
+    setTanggalAktif(keTanggalISO(baru))
+  }
 
   const pilihTanggal = (nilai: string) => {
-    if (!nilai) return;
-    setTanggalAktif(nilai);
-  };
+    if (!nilai) return
+    setTanggalAktif(nilai)
+  }
 
   const bukaModalKoreksi = (item: LogAbsensiMurid) => {
-    setAbsensiTerpilih(item);
-    setStatusKoreksi(item.status);
-  };
+    setAbsensiTerpilih(item)
+    setStatusKoreksi(item.status)
+  }
 
   const handleKoreksiAbsensi = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!absensiTerpilih || isMenyimpanKoreksi) return;
+    e.preventDefault()
+    if (!absensiTerpilih || isMenyimpanKoreksi) return
 
-    setIsMenyimpanKoreksi(true);
+    setIsMenyimpanKoreksi(true)
 
     try {
       const res = await fetchApi(`/api/absensi/${absensiTerpilih.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: statusKoreksi }),
-      });
-      const data = await res.json().catch(() => null);
+      })
+      const data = await res.json().catch(() => null)
 
       if (res.ok) {
         showNotification(
           "Koreksi Tersimpan",
           `Status ${data?.data?.murid?.namaLengkap || absensiTerpilih.murid.namaLengkap} diubah menjadi ${STATUS_LABEL[statusKoreksi]}.`,
-          true
-        );
-        setAbsensiTerpilih(null);
-        const dataRiwayat = await muatRiwayatAbsensi(mulaiISO, selesaiISO);
-        if (dataRiwayat) setRiwayatAbsensiMurid(dataRiwayat);
+          true,
+        )
+        setAbsensiTerpilih(null)
+        const dataRiwayat = await muatRiwayatAbsensi(mulaiISO, selesaiISO)
+        if (dataRiwayat) setRiwayatAbsensiMurid(dataRiwayat)
       } else {
         showNotification(
           "Gagal Mengoreksi",
           data?.message || "Terjadi kesalahan saat mengoreksi absensi.",
-          false
-        );
+          false,
+        )
       }
     } catch {
-      showNotification("Error", "Terjadi kesalahan jaringan", false);
+      showNotification("Error", "Terjadi kesalahan jaringan", false)
     } finally {
-      setIsMenyimpanKoreksi(false);
+      setIsMenyimpanKoreksi(false)
     }
-  };
+  }
 
   // ===== Data turunan (read-only) =====
-  const jarumTanggal = new Date(`${tanggalAktif}T00:00:00`);
+  const jarumTanggal = new Date(`${tanggalAktif}T00:00:00`)
 
   const rentangAktif = (() => {
     if (modePeriode === "MINGGUAN") {
-      const mulai = mulaiMinggu(jarumTanggal);
-      const selesai = akhirMinggu(mulai);
-      return { mulai, selesai, label: formatRentang(mulai, selesai, modePeriode) };
+      const mulai = mulaiMinggu(jarumTanggal)
+      const selesai = akhirMinggu(mulai)
+      return { mulai, selesai, label: formatRentang(mulai, selesai, modePeriode) }
     }
 
     if (modePeriode === "BULANAN") {
-      const mulai = mulaiBulan(jarumTanggal);
-      const selesai = akhirBulan(mulai);
-      return { mulai, selesai, label: formatRentang(mulai, selesai, modePeriode) };
+      const mulai = mulaiBulan(jarumTanggal)
+      const selesai = akhirBulan(mulai)
+      return { mulai, selesai, label: formatRentang(mulai, selesai, modePeriode) }
     }
 
     return {
       mulai: mulaiHari(jarumTanggal),
       selesai: akhirHari(jarumTanggal),
       label: formatRentang(mulaiHari(jarumTanggal), akhirHari(jarumTanggal), modePeriode),
-    };
-  })();
+    }
+  })()
 
-  const mulaiISO = keTanggalISO(rentangAktif.mulai);
-  const selesaiISO = keTanggalISO(rentangAktif.selesai);
+  const mulaiISO = keTanggalISO(rentangAktif.mulai)
+  const selesaiISO = keTanggalISO(rentangAktif.selesai)
 
   useEffect(() => {
     const muat = async () => {
-      const data = await muatRiwayatAbsensi(mulaiISO, selesaiISO);
-      if (data) setRiwayatAbsensiMurid(data);
-    };
-    void muat();
-  }, [mulaiISO, selesaiISO]);
+      const data = await muatRiwayatAbsensi(mulaiISO, selesaiISO)
+      if (data) setRiwayatAbsensiMurid(data)
+    }
+    void muat()
+  }, [mulaiISO, selesaiISO])
 
   // Daftar murid kelas ini diambil terpisah dari absensi.
   useEffect(() => {
     const muat = async () => {
       try {
-        const res = await fetchApi(`/api/murid?kelas=${encodeURIComponent(kelasAbsensi)}`);
+        const res = await fetchApi(`/api/murid?kelas=${encodeURIComponent(kelasAbsensi)}`)
         if (res.ok) {
-          const data: MuridRingkas[] = await res.json();
-          setMuridPerKelas(data);
+          const data: MuridRingkas[] = await res.json()
+          setMuridPerKelas(data)
         }
       } catch (error) {
-        console.error("Gagal memuat murid:", error);
+        console.error("Gagal memuat murid:", error)
       }
-    };
-    void muat();
-  }, [kelasAbsensi]);
+    }
+    void muat()
+  }, [kelasAbsensi])
 
   const absensiDalamRentang = riwayatAbsensiMurid.filter((item) =>
-    dalamRentang(item.tanggal, rentangAktif.mulai, rentangAktif.selesai)
-  );
+    dalamRentang(item.tanggal, rentangAktif.mulai, rentangAktif.selesai),
+  )
 
   const rekapPeriode = STATUS_ABSENSI.map((status) => ({
     ...status,
     jumlah: absensiDalamRentang.filter((item) => item.status === status.value).length,
-  }));
+  }))
 
   // Ringkasan per murid untuk jangkauan yang dipilih.
   const ringkasanMurid = muridPerKelas.map((murid) => {
-    const catatan = absensiDalamRentang.filter((item) => item.murid.id === murid.id);
+    const catatan = absensiDalamRentang.filter((item) => item.murid.id === murid.id)
     const hitung = STATUS_ABSENSI.reduce<Record<string, number>>((acc, status) => {
-      acc[status.value] = catatan.filter((item) => item.status === status.value).length;
-      return acc;
-    }, {});
+      acc[status.value] = catatan.filter((item) => item.status === status.value).length
+      return acc
+    }, {})
 
-    const total = catatan.length;
+    const total = catatan.length
 
     return {
       murid,
@@ -302,31 +323,25 @@ export default function KehadiranSiswa({
       hitung,
       total,
       persenHadir: total > 0 ? Math.round((hitung.HADIR / total) * 100) : null,
-    };
-  });
+    }
+  })
 
-  const jumlahBelumTercatat = ringkasanMurid.filter((item) => item.total === 0).length;
+  const jumlahBelumTercatat = ringkasanMurid.filter((item) => item.total === 0).length
 
-  const normalizePencarian = (nilai: string) => nilai.trim().toLowerCase();
+  const normalizePencarian = (nilai: string) => nilai.trim().toLowerCase()
 
   const riwayatAbsensiTampil = absensiDalamRentang.filter((item) => {
-    const cocokKelas = filterRiwayatKelas ? item.murid.kelas === filterRiwayatKelas : true;
-    const cocokStatus = filterRiwayatStatus ? item.status === filterRiwayatStatus : true;
-    const kataKunci = normalizePencarian(riwayatSearch);
-    const cocokNama = kataKunci ? item.murid.namaLengkap.toLowerCase().includes(kataKunci) : true;
+    const cocokKelas = filterRiwayatKelas ? item.murid.kelas === filterRiwayatKelas : true
+    const cocokStatus = filterRiwayatStatus ? item.status === filterRiwayatStatus : true
+    const kataKunci = normalizePencarian(riwayatSearch)
+    const cocokNama = kataKunci ? item.murid.namaLengkap.toLowerCase().includes(kataKunci) : true
 
-    return cocokKelas && cocokStatus && cocokNama;
-  });
+    return cocokKelas && cocokStatus && cocokNama
+  })
 
-  const totalHalamanRiwayat = Math.max(
-    1,
-    Math.ceil(riwayatAbsensiTampil.length / BATCH_RIWAYAT)
-  );
-  const halamanAktifRiwayat = Math.min(halamanRiwayat, totalHalamanRiwayat);
-  const riwayatDitampilkan = riwayatAbsensiTampil.slice(
-    0,
-    halamanAktifRiwayat * BATCH_RIWAYAT
-  );
+  const totalHalamanRiwayat = Math.max(1, Math.ceil(riwayatAbsensiTampil.length / BATCH_RIWAYAT))
+  const halamanAktifRiwayat = Math.min(halamanRiwayat, totalHalamanRiwayat)
+  const riwayatDitampilkan = riwayatAbsensiTampil.slice(0, halamanAktifRiwayat * BATCH_RIWAYAT)
 
   return (
     <>
@@ -405,8 +420,8 @@ export default function KehadiranSiswa({
                 <button
                   type="button"
                   onClick={() => {
-                    setModePeriode("HARIAN");
-                    setTanggalAktif(keTanggalISO(new Date()));
+                    setModePeriode("HARIAN")
+                    setTanggalAktif(keTanggalISO(new Date()))
                   }}
                   className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
                 >
@@ -471,7 +486,9 @@ export default function KehadiranSiswa({
                   ringkasanMurid.map((item, index) => (
                     <tr key={item.murid.id} className="border-t hover:bg-gray-50 transition">
                       <td className="px-4 py-3 text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-800">{item.murid.namaLengkap}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-800">
+                        {item.murid.namaLengkap}
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{item.murid.namaPanggilan}</td>
 
                       {modePeriode === "HARIAN" ? (
@@ -545,8 +562,8 @@ export default function KehadiranSiswa({
                 placeholder="Cari nama siswa..."
                 value={riwayatSearch}
                 onChange={(e) => {
-                  setRiwayatSearch(e.target.value);
-                  setHalamanRiwayat(1);
+                  setRiwayatSearch(e.target.value)
+                  setHalamanRiwayat(1)
                 }}
                 className="w-full rounded-xl border border-[#D6B25E] bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-[#0F3D8C] sm:w-56"
               />
@@ -554,8 +571,8 @@ export default function KehadiranSiswa({
               <select
                 value={filterRiwayatKelas}
                 onChange={(e) => {
-                  setFilterRiwayatKelas(e.target.value);
-                  setHalamanRiwayat(1);
+                  setFilterRiwayatKelas(e.target.value)
+                  setHalamanRiwayat(1)
                 }}
                 className="w-full rounded-xl border border-[#D6B25E] bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-[#0F3D8C] sm:w-44"
               >
@@ -570,8 +587,8 @@ export default function KehadiranSiswa({
               <select
                 value={filterRiwayatStatus}
                 onChange={(e) => {
-                  setFilterRiwayatStatus(e.target.value);
-                  setHalamanRiwayat(1);
+                  setFilterRiwayatStatus(e.target.value)
+                  setHalamanRiwayat(1)
                 }}
                 className="w-full rounded-xl border border-[#D6B25E] bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-[#0F3D8C] sm:w-40"
               >
@@ -653,15 +670,14 @@ export default function KehadiranSiswa({
 
           {riwayatAbsensiMurid.length >= BATAS_RIWAYAT && (
             <p className="mt-2 text-xs font-semibold text-amber-600">
-              Baru menampilkan {BATAS_RIWAYAT} catatan terbaru. Persempit rentang tanggal
-              atau tambah filter untuk hasil yang lebih sedikit.
+              Baru menampilkan {BATAS_RIWAYAT} catatan terbaru. Persempit rentang tanggal atau
+              tambah filter untuk hasil yang lebih sedikit.
             </p>
           )}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
             <span>
-              Menampilkan {riwayatDitampilkan.length} dari {riwayatAbsensiTampil.length}{" "}
-              catatan
+              Menampilkan {riwayatDitampilkan.length} dari {riwayatAbsensiTampil.length} catatan
             </span>
             {halamanAktifRiwayat < totalHalamanRiwayat && (
               <button
@@ -679,12 +695,17 @@ export default function KehadiranSiswa({
       {/* POP-UP MODAL: KOREKSI ABSENSI SISWA (KHUSUS ADMIN) */}
       {absensiTerpilih && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-          <form onSubmit={handleKoreksiAbsensi} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl text-gray-900 border">
+          <form
+            onSubmit={handleKoreksiAbsensi}
+            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl text-gray-900 border"
+          >
             <h3 className="text-xl font-bold text-[#0F3D8C]">Koreksi Absensi Siswa</h3>
 
             <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
               <p>
-                <span className="font-semibold text-gray-800">{absensiTerpilih.murid.namaLengkap}</span>
+                <span className="font-semibold text-gray-800">
+                  {absensiTerpilih.murid.namaLengkap}
+                </span>
                 {" · "}
                 {formatKelas(absensiTerpilih.murid.kelas)}
               </p>
@@ -700,7 +721,9 @@ export default function KehadiranSiswa({
             </div>
 
             <div>
-              <label className="text-sm font-semibold block text-gray-700 mb-1">Status Kehadiran</label>
+              <label className="text-sm font-semibold block text-gray-700 mb-1">
+                Status Kehadiran
+              </label>
               <select
                 value={statusKoreksi}
                 onChange={(e) => setStatusKoreksi(e.target.value)}
@@ -734,5 +757,5 @@ export default function KehadiranSiswa({
         </div>
       )}
     </>
-  );
+  )
 }

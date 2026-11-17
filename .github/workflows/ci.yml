@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      # Dummy saja: build tidak menyentuh basis data, tapi Prisma/Next butuh variabel ini.
+      DATABASE_URL: postgresql://postgres:***@localhost:5432/aksara
+      JWT_SECRET: ci-secret-yang-cukup-panjang-untuk-pengujian
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npx tsc --noEmit
+
+      - run: npm test
+
+      - run: npm run build

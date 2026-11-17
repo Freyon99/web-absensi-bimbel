@@ -1,4 +1,4 @@
-import  prisma  from "@/lib/prisma"
+import prisma from "@/lib/prisma"
 import { comparePassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
 import { cekRateLimiter } from "@/lib/rate-limit"
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     if (!batasEmail.ok) {
       return Response.json(
         { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
-        { status: 429, headers: { "Retry-After": String(batasEmail.cobaLagiDalamDetik) } }
+        { status: 429, headers: { "Retry-After": String(batasEmail.cobaLagiDalamDetik) } },
       )
     }
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     if (!batasIp.ok) {
       return Response.json(
         { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
-        { status: 429, headers: { "Retry-After": String(batasIp.cobaLagiDalamDetik) } }
+        { status: 429, headers: { "Retry-After": String(batasIp.cobaLagiDalamDetik) } },
       )
     }
 
@@ -54,14 +54,11 @@ export async function POST(req: Request) {
         },
         {
           status: 401,
-        }
+        },
       )
     }
 
-    const isValidPassword = await comparePassword(
-      data.password,
-      user.password
-    )
+    const isValidPassword = await comparePassword(data.password, user.password)
 
     if (!isValidPassword) {
       return Response.json(
@@ -70,7 +67,7 @@ export async function POST(req: Request) {
         },
         {
           status: 401,
-        }
+        },
       )
     }
 
@@ -85,14 +82,13 @@ export async function POST(req: Request) {
     // Sesi disimpan sebagai cookie HttpOnly supaya tidak bisa dibaca JavaScript.
     setCookieToken(req, res, token)
     return res
-    
   } catch (error) {
     console.error("DETAIL ERROR LOGIN:", error)
 
     if (error instanceof z.ZodError) {
       return Response.json(
         { message: "Format data tidak valid", errors: error.issues },
-        { status: 400 }
+        { status: 400 },
       )
     }
 

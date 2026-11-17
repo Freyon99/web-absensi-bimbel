@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         message: "Murid berhasil ditambahkan",
         data: muridBaru,
       },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error) {
     const guard = responGuard(error)
@@ -79,14 +79,11 @@ export async function POST(req: Request) {
           message: "Format data tidak valid",
           errors: error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    return Response.json(
-      { message: "Gagal menambahkan murid" },
-      { status: 500 }
-    )
+    return Response.json({ message: "Gagal menambahkan murid" }, { status: 500 })
   }
 }
 // =========================
@@ -142,7 +139,7 @@ export async function GET(req: Request) {
       },
       {
         status: 500,
-      }
+      },
     )
   }
 }

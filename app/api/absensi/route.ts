@@ -86,14 +86,14 @@ export async function POST(req: Request) {
           message: "Murid sudah diabsen hari ini dan tidak bisa diabsen ulang oleh guru lain.",
           pencatat: hasil.pencatat,
         },
-        { status: 409 }
+        { status: 409 },
       )
     }
 
     // D. Simpan ke database PostgreSQL
     return Response.json(
       { message: "Absensi murid berhasil dicatat", data: hasil.data },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error) {
     const guard = responGuard(error)
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return Response.json(
         { message: "Format data tidak valid", errors: error.issues },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -179,9 +179,6 @@ export async function GET(req: Request) {
     if (guard) return guard
 
     console.error("DETAIL ERROR GET ABSENSI:", error)
-    return Response.json(
-      { message: "Gagal mengambil data riwayat absensi" },
-      { status: 500 }
-    )
+    return Response.json({ message: "Gagal mengambil data riwayat absensi" }, { status: 500 })
   }
 }
