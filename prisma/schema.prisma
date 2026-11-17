@@ -45,6 +45,7 @@ model Murid {
   guru             Pengguna? @relation(fields: [guruId], references: [id], onDelete: SetNull)
 
   @@index([guruId])
+  @@index([tanggalMasuk])
 }
 
 model Absensi {
@@ -59,6 +60,11 @@ model Absensi {
   @@index([tanggal])
   @@index([guruId])
   @@index([muridId])
+  // Index unik satu absensi per murid per hari dibuat langsung di database
+  // karena Prisma tidak mendukung expression index:
+  //   CREATE UNIQUE INDEX absensi_murid_per_hari_unik
+  //     ON "Absensi" ("muridId", date_trunc('day', "tanggal"));
+  // Jangan dihapus; aturan 1 murid 1 hari ditegakkan di level DB.
 }
 
 model AbsensiGuru {
@@ -67,6 +73,8 @@ model AbsensiGuru {
   waktuPulang DateTime? // Tambahkan kolom opsional ini
   guruId      String
   guru        Pengguna  @relation(fields: [guruId], references: [id], onDelete: Cascade)
+
+  @@index([waktuMasuk])
 }
 
 enum Peran {

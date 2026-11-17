@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma"
 import { z } from "zod"
-import { Kelas } from "@prisma/client"
+import { Kelas, Prisma } from "@prisma/client"
 import { responGuard, wajibAdmin, wajibAuth } from "@/lib/api-guard"
+import { KELAS_OPTIONS } from "@/lib/kelas"
 
 const muridSchema = z.object({
   namaLengkap: z.string(),
@@ -83,10 +84,7 @@ export async function POST(req: Request) {
     }
 
     return Response.json(
-      {
-        message: "Gagal menambahkan murid",
-        detail: error instanceof Error ? error.message : error,
-      },
+      { message: "Gagal menambahkan murid" },
       { status: 500 }
     )
   }
@@ -101,10 +99,34 @@ export async function GET(req: Request) {
     // =========================
     await wajibAuth(req)
 
+    // Filter di server supaya dashboard cukup mengambil kelas yang dibuka.
+    const params = new URL(req.url).searchParams
+    const where: Prisma.MuridWhereInput = {}
+
+    const kelas = params.get("kelas")
+    if (kelas && (KELAS_OPTIONS as readonly string[]).includes(kelas)) {
+      where.kelas = kelas as Kelas
+    }
+
+    const cari = params.get("cari")
+    if (cari) {
+      where.namaLengkap = { contains: cari, mode: "insensitive" }
+    }
+
+    const pembayaran = params.get("pembayaran")
+    if (pembayaran) where.pembayaran = pembayaran
+
+    // Paginasi berbasis offset: Data Siswa admin meminta per halaman.
+    const batas = Math.min(Math.max(Number(params.get("batas")) || 50, 1), 500)
+    const mulai = Math.max(Number(params.get("mulai")) || 0, 0)
+
     const semuaMurid = await prisma.murid.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: {
         tanggalMasuk: "desc",
       },
+      skip: mulai,
+      take: batas,
     })
 
     return Response.json(semuaMurid)

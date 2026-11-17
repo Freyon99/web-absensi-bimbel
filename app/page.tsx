@@ -113,6 +113,8 @@ export default function Home() {
       showPopup("Login Gagal", err instanceof Error ? err.message : "Gagal masuk", false);
     } finally {
       setIsLoading(false);
+      // Password tidak disimpan di state setelah percobaan login selesai.
+      setPassword("");
     }
   };
 
@@ -269,7 +271,17 @@ export default function Home() {
           </div>
 
           <div className="mb-4 sm:mb-5 flex justify-end text-xs sm:text-sm animate-fade-up" style={{ animationDelay: "0.65s" }}>
-            <button className="inline-block text-[#0F3D8C] transition-transform duration-200 hover:translate-x-0.5 hover:underline">
+            <button
+              type="button"
+              onClick={() =>
+                showPopup(
+                  "Lupa Password",
+                  "Reset password hanya bisa dilakukan admin. Silakan hubungi admin Aksara Bimbel untuk mengatur ulang password Anda.",
+                  false
+                )
+              }
+              className="inline-block text-[#0F3D8C] transition-transform duration-200 hover:translate-x-0.5 hover:underline"
+            >
               Forgot Password
             </button>
           </div>

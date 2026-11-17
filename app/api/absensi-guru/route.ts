@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAuth } from "@/lib/api-guard"
+import { Prisma } from "@prisma/client"
+import { mulaiHari, akhirHari, dariISOHari } from "@/lib/tanggal"
 
 // 1. GURU ABSEN DATANG (POST)
 export async function POST(req: Request) {
@@ -98,27 +100,49 @@ export async function GET(req: Request) {
   try {
     const payload = await wajibAuth(req)
 
-    let whereCondition = {}
+    const AND: Prisma.AbsensiGuruWhereInput[] = []
 
     // Jika yang mengakses adalah GURU, maka dia dikunci hanya boleh melihat datanya sendiri
-    // Jika yang mengakses ADMIN, objek parameter filter sengaja dibiarkan kosong ({}) agar Prisma menarik total data seluruh pengajar
+    // Jika yang mengakses ADMIN, filter sengaja dibiarkan kosong agar Prisma menarik data seluruh pengajar
     if (payload.role === "GURU") {
-      whereCondition = { guruId: payload.id }
+      AND.push({ guruId: payload.id })
     }
 
-    const riwayatAbsen = await prisma.absensiGuru.findMany({
-      where: whereCondition,
-      include: {
-        guru: {
-          select: { nama: true, email: true, peran: true },
-        },
-      },
-      orderBy: {
-        waktuMasuk: "desc",
-      },
-    })
+    const params = new URL(req.url).searchParams
 
-    return Response.json(riwayatAbsen)
+    // Rentang tanggal opsional (YYYY-MM-DD, batas hari server-local).
+    const tanggalMulai = params.get("tanggalMulai")
+    if (tanggalMulai && /^\d{4}-\d{2}-\d{2}$/.test(tanggalMulai)) {
+      AND.push({ waktuMasuk: { gte: mulaiHari(dariISOHari(tanggalMulai)) } })
+    }
+
+    const tanggalSelesai = params.get("tanggalSelesai")
+    if (tanggalSelesai && /^\d{4}-\d{2}-\d{2}$/.test(tanggalSelesai)) {
+      AND.push({ waktuMasuk: { lte: akhirHari(dariISOHari(tanggalSelesai)) } })
+    }
+
+    const batas = Math.min(Math.max(Number(params.get("batas")) || 500, 1), 1000)
+    const where = AND.length > 0 ? { AND } : undefined
+
+    const [riwayatAbsen, total] = await Promise.all([
+      prisma.absensiGuru.findMany({
+        where,
+        include: {
+          guru: {
+            select: { nama: true, email: true, peran: true },
+          },
+        },
+        orderBy: {
+          waktuMasuk: "desc",
+        },
+        take: batas,
+      }),
+      prisma.absensiGuru.count({ where }),
+    ])
+
+    // `total` memungkinkan klien menampilkan hitungan sebenarnya walau data
+    // yang dikirim dibatasi.
+    return Response.json({ data: riwayatAbsen, total })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard

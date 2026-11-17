@@ -43,6 +43,15 @@ export async function wajibAuth(req: Request): Promise<AuthPayload> {
     throw new AutentikasiError("Token tidak valid", 401)
   }
 
+  // Penjaga CSRF: browser modern mengirim `Sec-Fetch-Site`. Request lintas situs
+  // ke endpoint yang mengubah data ditolak. Cookie SameSite=Strict tetap lapisan
+  // utama; ini menutup kasus browser/proxy yang tidak mengirimkan header itu.
+  const method = req.method.toUpperCase();
+  const mengubahData = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+  if (mengubahData && req.headers.get("sec-fetch-site") === "cross-site") {
+    throw new AutentikasiError("Akses ditolak: request lintas situs", 403);
+  }
+
   return { id, role }
 }
 

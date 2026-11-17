@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
 import { logout } from "@/lib/session";
 import { fetchApi } from "@/lib/api-client";
+import { KELAS_OPTIONS } from "@/lib/kelas";
+import KehadiranSiswa from "./kehadiran-siswa";
 
 interface UserProfile {
   id: string;
@@ -53,6 +55,17 @@ interface HasilImport {
   errors: { row: number; message: string }[];
 }
 
+interface RingkasanSiswa {
+  total: number;
+  perKelas: Record<string, number>;
+  perPembayaran: Record<string, number>;
+  lunas: number;
+  belumLunas: number;
+}
+
+// Tabel Data Siswa menampilkan 50 baris per halaman supaya render tetap ringan.
+const BATCH_SISWA = 50;
+
 export default function AdminPage() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,9 +80,22 @@ export default function AdminPage() {
   const [activeSiswaPembayaranFilter, setActiveSiswaPembayaranFilter] = useState("");
   const [activeAbsensiGuruFilter, setActiveAbsensiGuruFilter] = useState("");
 
-  const [siswaList, setSiswaList] = useState<Murid[]>([]);
+  // Data siswa dipaginasi di server; ringkasan dipakai untuk statistik/grafik.
+  const [ringkasanGlobal, setRingkasanGlobal] = useState<RingkasanSiswa>({
+    total: 0,
+    perKelas: {},
+    perPembayaran: {},
+    lunas: 0,
+    belumLunas: 0,
+  });
+  const [halamanSiswa, setHalamanSiswa] = useState<Murid[]>([]);
+  const [totalSiswaTerfilter, setTotalSiswaTerfilter] = useState(0);
+  const [halamanSiswaAktif, setHalamanSiswaAktif] = useState(1);
+  const [cocokSiswa, setCocokSiswa] = useState(0); // pemicu ambil ulang setelah ubah data
+  const [dashboardSiswaResults, setDashboardSiswaResults] = useState<Murid[]>([]);
   const [guruList, setGuruList] = useState<UserProfile[]>([]);
   const [absenGuruList, setAbsenGuruList] = useState<LogAbsenGuru[]>([]);
+  const [totalAbsenGuru, setTotalAbsenGuru] = useState(0);
 
   const [modalType, setModalType] = useState<"tambahGuru" | "editGuru" | "tambahSiswa" | "editSiswa" | "detailSiswa" | null>(null);
   const [selectedSiswa, setSelectedSiswa] = useState<Murid | null>(null);
@@ -102,14 +128,14 @@ export default function AdminPage() {
       }
       
       const parsedUser = JSON.parse(savedUser);
-      if (parsedUser.peran !== "ADMIN") { 
+      if (parsedUser.peran !== "ADMIN") {
         router.push("/dashboard"); 
         setIsLoadingGlobal(false);
         return; 
       }
       
       setUser(parsedUser);
-      await Promise.all([fetchDataSiswa(), fetchDataGuru(), fetchAbsensiGuru()]);
+      await Promise.all([fetchRingkasanGlobal(), fetchDataGuru(), fetchAbsensiGuru()]);
       setIsLoadingGlobal(false);
     };
 
@@ -126,22 +152,82 @@ export default function AdminPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  async function fetchDataSiswa() {
-    const res = await fetchApi("/api/murid");
-    if (res.ok) setSiswaList(await res.json());
+  async function fetchRingkasanGlobal() {
+    try {
+      const res = await fetchApi("/api/murid/ringkasan");
+      if (res.ok) setRingkasanGlobal(await res.json());
+    } catch (error) {
+      console.error("Gagal memuat ringkasan siswa:", error);
+    }
   }
 
+  async function cariDashboard(kata: string) {
+    try {
+      const res = await fetchApi(`/api/murid?cari=${encodeURIComponent(kata)}&batas=50`);
+      if (res.ok) setDashboardSiswaResults(await res.json());
+    } catch (error) {
+      console.error("Gagal mencari siswa:", error);
+    }
+  }
+
+  // Data Siswa diambil per halaman dari server sesuai filter yang aktif.
+  useEffect(() => {
+    const muat = async () => {
+      const params = new URLSearchParams();
+      if (activeSiswaKelasFilter) params.set("kelas", activeSiswaKelasFilter);
+      if (activeSiswaPembayaranFilter) params.set("pembayaran", activeSiswaPembayaranFilter);
+      if (searchQuery.trim()) params.set("cari", searchQuery.trim());
+
+      const paramsRingkasan = new URLSearchParams(params);
+      params.set("mulai", String((halamanSiswaAktif - 1) * BATCH_SISWA));
+      params.set("batas", String(BATCH_SISWA));
+
+      try {
+        const [resRingkasan, resHalaman] = await Promise.all([
+          fetchApi(`/api/murid/ringkasan?${paramsRingkasan}`),
+          fetchApi(`/api/murid?${params}`),
+        ]);
+        if (resRingkasan.ok) {
+          const ringkasan = await resRingkasan.json();
+          setTotalSiswaTerfilter(ringkasan.total);
+        }
+        if (resHalaman.ok) setHalamanSiswa(await resHalaman.json());
+      } catch (error) {
+        console.error("Gagal memuat data siswa:", error);
+      }
+    };
+    void muat();
+  }, [
+    activeSiswaKelasFilter,
+    activeSiswaPembayaranFilter,
+    searchQuery,
+    halamanSiswaAktif,
+    cocokSiswa,
+  ]);
+
   async function fetchDataGuru() {
-    const res = await fetchApi("/api/users");
-    if (res.ok) {
-      const data = await res.json();
-      setGuruList(data.filter((u: UserProfile) => u.peran === "GURU"));
+    try {
+      const res = await fetchApi("/api/users");
+      if (res.ok) {
+        const data = await res.json();
+        setGuruList(data.filter((u: UserProfile) => u.peran === "GURU"));
+      }
+    } catch (error) {
+      console.error("Gagal memuat data guru:", error);
     }
   }
 
   async function fetchAbsensiGuru() {
-    const res = await fetchApi("/api/absensi-guru");
-    if (res.ok) setAbsenGuruList(await res.json());
+    try {
+      const res = await fetchApi("/api/absensi-guru?batas=1000");
+      if (res.ok) {
+        const data = await res.json();
+        setAbsenGuruList(data.data);
+        setTotalAbsenGuru(data.total);
+      }
+    } catch (error) {
+      console.error("Gagal memuat log absen guru:", error);
+    }
   }
 
   // Unduh file (CSV/Excel) dari server lalu simpan lewat anchor,
@@ -225,7 +311,8 @@ export default function AdminPage() {
       }
 
       setHasilImport(data);
-      fetchDataSiswa();
+      fetchRingkasanGlobal();
+      setCocokSiswa((k) => k + 1);
     } catch {
       showNotification("Error", "Terjadi kesalahan jaringan saat mengimpor data.", false);
     } finally {
@@ -306,7 +393,8 @@ export default function AdminPage() {
     if (res.ok) {
       showNotification("Sukses", "Data siswa baru berhasil ditambahkan!", true);
       setModalType(null);
-      fetchDataSiswa();
+      fetchRingkasanGlobal();
+      setCocokSiswa((k) => k + 1);
     } else {
       showNotification("Gagal", "Gagal menambahkan siswa.", false);
     }
@@ -323,7 +411,8 @@ export default function AdminPage() {
     if (res.ok) {
       showNotification("Sukses", "Data siswa berhasil diperbarui!", true);
       setModalType(null);
-      fetchDataSiswa();
+      fetchRingkasanGlobal();
+      setCocokSiswa((k) => k + 1);
     } else {
       showNotification("Gagal", "Gagal memperbarui data siswa.", false);
     }
@@ -339,7 +428,8 @@ export default function AdminPage() {
         });
         if (res.ok) {
           showNotification("Terhapus", "Data murid telah dihapus dari sistem.", true);
-          fetchDataSiswa();
+          fetchRingkasanGlobal();
+          setCocokSiswa((k) => k + 1);
         } else {
           showNotification("Gagal", "Gagal menghapus data murid.", false);
         }
@@ -397,37 +487,29 @@ export default function AdminPage() {
       .map(([label, value]) => ({ label, value }));
   };
 
-  const siswaByKelas = toChartData(countByField(siswaList, (s) => formatKelas(s.kelas)));
-  const siswaByPembayaran = toChartData(countByField(siswaList, (s) => s.pembayaran), 4);
+  const siswaByKelas = Object.entries(ringkasanGlobal.perKelas)
+    .map(([kelas, value]) => ({ label: formatKelas(kelas), raw: kelas, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+  const siswaByPembayaran = Object.entries(ringkasanGlobal.perPembayaran)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
   const absensiByGuru = toChartData(countByField(absenGuruList, (a) => a.guru?.nama || "Guru Terhapus"));
   const totalAbsensiSelesai = absenGuruList.filter((a) => Boolean(a.waktuPulang)).length;
   const maxSiswaKelas = Math.max(...siswaByKelas.map((item) => item.value), 1);
   const maxAbsensiGuru = Math.max(...absensiByGuru.map((item) => item.value), 1);
-  const normalizedDashboardSearch = dashboardSearch.toLowerCase();
-  const dashboardSiswaResults = siswaList.filter((s) =>
-    [s.namaLengkap, s.namaPanggilan, s.kelas, s.sekolahAsal, s.noHpOrangTua]
-      .some((value) => value?.toLowerCase().includes(normalizedDashboardSearch))
-  );
   const dashboardGuruResults = guruList.filter((g) =>
     [g.nama, g.email, g.noHp]
-      .some((value) => value?.toLowerCase().includes(normalizedDashboardSearch))
+      .some((value) => value?.toLowerCase().includes(dashboardSearch.toLowerCase()))
   );
-  const filteredSiswa = siswaList.filter((s) => {
-    const normalizedSearch = searchQuery.toLowerCase();
-    const kelasLabel = formatKelas(s.kelas);
-    const matchesSearch = [s.namaLengkap, s.namaPanggilan, kelasLabel, s.sekolahAsal, s.noHpOrangTua]
-      .some((value) => value?.toLowerCase().includes(normalizedSearch));
-    const matchesKelas = activeSiswaKelasFilter ? kelasLabel === activeSiswaKelasFilter : true;
-    const matchesPembayaran = activeSiswaPembayaranFilter ? s.pembayaran === activeSiswaPembayaranFilter : true;
-
-    return matchesSearch && matchesKelas && matchesPembayaran;
-  });
   const filteredAbsensiGuru = activeAbsensiGuruFilter
     ? absenGuruList.filter((item) => (item.guru?.nama || "Guru Terhapus") === activeAbsensiGuruFilter)
     : absenGuruList;
 
   const openSiswaByKelas = (kelas: string) => {
     setSearchQuery("");
+    setHalamanSiswaAktif(1);
     setActiveSiswaKelasFilter(kelas);
     setActiveSiswaPembayaranFilter("");
     setActiveAbsensiGuruFilter("");
@@ -436,6 +518,7 @@ export default function AdminPage() {
 
   const openSiswaByPembayaran = (pembayaran: string) => {
     setSearchQuery("");
+    setHalamanSiswaAktif(1);
     setActiveSiswaKelasFilter("");
     setActiveSiswaPembayaranFilter(pembayaran);
     setActiveAbsensiGuruFilter("");
@@ -489,7 +572,7 @@ export default function AdminPage() {
         <aside className="w-64 bg-[#0F3D8C] p-5 text-white shrink-0 min-h-full">
           <h2 className="mb-4 text-lg font-bold">Menu Admin</h2>
           <div className="space-y-2">
-            {["Dashboard", "Data Siswa", "Data Guru", "Absensi Guru",].map((menu) => (
+            {["Dashboard", "Data Siswa", "Data Guru", "Absensi Guru", "Absensi Siswa"].map((menu) => (
               <button
                 key={menu}
                 onClick={() => {
@@ -520,7 +603,15 @@ export default function AdminPage() {
                     type="text"
                     placeholder="Cari nama, kelas, sekolah, email, atau no HP..."
                     value={dashboardSearch}
-                    onChange={(e) => setDashboardSearch(e.target.value)}
+                    onChange={(e) => {
+                      setDashboardSearch(e.target.value);
+                      const kata = e.target.value.trim();
+                      if (!kata) {
+                        setDashboardSiswaResults([]);
+                        return;
+                      }
+                      void cariDashboard(kata);
+                    }}
                     className="w-full rounded-xl border border-[#D6B25E] bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-[#0F3D8C] focus:ring-2 focus:ring-[#0F3D8C]/10"
                   />
                 </div>
@@ -529,7 +620,7 @@ export default function AdminPage() {
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-blue-100 bg-white p-5 shadow-sm">
                   <p className="text-sm font-semibold text-gray-500">Total Siswa</p>
-                  <p className="mt-2 text-3xl font-bold text-[#0F3D8C]">{siswaList.length}</p>
+                  <p className="mt-2 text-3xl font-bold text-[#0F3D8C]">{ringkasanGlobal.total}</p>
                   <p className="mt-1 text-xs text-gray-400">Anak terdaftar</p>
                 </div>
                 <div className="rounded-xl border border-emerald-100 bg-white p-5 shadow-sm">
@@ -539,12 +630,12 @@ export default function AdminPage() {
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm">
                   <p className="text-sm font-semibold text-gray-500">Absensi Guru</p>
-                  <p className="mt-2 text-3xl font-bold text-amber-700">{absenGuruList.length}</p>
+                  <p className="mt-2 text-3xl font-bold text-amber-700">{totalAbsenGuru}</p>
                   <p className="mt-1 text-xs text-gray-400">{totalAbsensiSelesai} sudah absen pulang</p>
                 </div>
                 <div className="rounded-xl border border-rose-100 bg-white p-5 shadow-sm">
                   <p className="text-sm font-semibold text-gray-500">Pembayaran Lunas</p>
-                  <p className="mt-2 text-3xl font-bold text-rose-700">{siswaList.filter((s) => s.pembayaran === "LUNAS").length}</p>
+                  <p className="mt-2 text-3xl font-bold text-rose-700">{ringkasanGlobal.lunas}</p>
                   <p className="mt-1 text-xs text-gray-400">Dari total siswa</p>
                 </div>
               </div>
@@ -566,7 +657,7 @@ export default function AdminPage() {
                           <button
                             key={item.label}
                             type="button"
-                            onClick={() => openSiswaByKelas(item.label)}
+                            onClick={() => openSiswaByKelas(item.raw)}
                             title={`Lihat data siswa kelas ${item.label}`}
                             className="group flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-2 rounded-lg px-1 py-2 transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-[#0F3D8C]/20"
                           >
@@ -677,7 +768,7 @@ export default function AdminPage() {
                             <span className="flex h-32 w-full items-end justify-center">
                               <span
                                 className="w-full max-w-16 rounded-t-lg bg-[#D6B25E] transition-all group-hover:bg-amber-600"
-                                style={{ height: `${Math.max((item.value / Math.max(siswaList.length, 1)) * 100, 12)}%` }}
+                                style={{ height: `${Math.max((item.value / Math.max(ringkasanGlobal.total, 1)) * 100, 12)}%` }}
                               />
                             </span>
                             <span className="w-full truncate text-center text-xs font-semibold text-gray-600">{item.label}</span>
@@ -704,7 +795,7 @@ export default function AdminPage() {
                   {(activeSiswaKelasFilter || activeSiswaPembayaranFilter) && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-[#0F3D8C]">
-                        Filter: {activeSiswaKelasFilter || activeSiswaPembayaranFilter}
+                        Filter: {activeSiswaKelasFilter ? formatKelas(activeSiswaKelasFilter) : activeSiswaPembayaranFilter}
                       </span>
                       <button
                         type="button"
@@ -788,12 +879,12 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSiswa.length === 0 ? (
+                    {halamanSiswa.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-gray-400">Tidak ada data siswa yang cocok</td>
                       </tr>
                     ) : (
-                      filteredSiswa.map((item, index) => (
+                      halamanSiswa.map((item, index) => (
                         <tr key={item.id} className="border-t hover:bg-gray-50 transition">
                           <td className="px-4 py-3 text-gray-600">{index + 1}</td>
                           <td className="px-4 py-3 text-gray-600">{new Date(item.tanggalMasuk).toLocaleDateString("id-ID")}</td>
@@ -810,6 +901,33 @@ export default function AdminPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                <span>
+                  Menampilkan {halamanSiswa.length} dari {totalSiswaTerfilter} siswa · Halaman{" "}
+                  {halamanSiswaAktif}
+                </span>
+                <div className="flex gap-2">
+                  {halamanSiswaAktif > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setHalamanSiswaAktif((halaman) => Math.max(1, halaman - 1))}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Sebelumnya
+                    </button>
+                  )}
+                  {halamanSiswaAktif * BATCH_SISWA < totalSiswaTerfilter && (
+                    <button
+                      type="button"
+                      onClick={() => setHalamanSiswaAktif((halaman) => halaman + 1)}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                      Berikutnya
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -953,6 +1071,11 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* MENU 4: ABSENSI SISWA */}
+          {menuAktif === "Absensi Siswa" && (
+            <KehadiranSiswa showNotification={showNotification} />
+          )}
         </main>
       </div>
       {/* POP-UP MODAL 1: FORM TAMBAH GURU + INPUT NO HP */}
@@ -996,17 +1119,11 @@ export default function AdminPage() {
             <div>
               <label className="text-xs font-bold text-gray-700 block mb-1">Kelas Tingkat</label>
               <select value={formSiswa.kelas} onChange={(e) => setFormSiswa({...formSiswa,kelas: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]">
-                <option value="CALISTUNG">Calistung</option>
-                <option value="SD_1">SD 1</option>
-                <option value="SD_2">SD 2</option>
-                <option value="SD_3">SD 3</option>
-                <option value="SD_4">SD 4</option>
-                <option value="SD_5">SD 5</option>
-                <option value="SD_6">SD 6</option>
-                <option value="SMP_1">SMP 1</option>
-                <option value="SMP_2">SMP 2</option>
-                <option value="SMP_3">SMP 3</option>
-                <option value="SMK_1">SMK 1</option>
+                {KELAS_OPTIONS.map((kelas) => (
+                  <option key={kelas} value={kelas}>
+                    {formatKelas(kelas)}
+                  </option>
+                ))}
               </select>
             </div>
             <div><label className="text-xs font-bold text-gray-700 block mb-1">Sekolah Asal</label><input type="text" required value={formSiswa.sekolahAsal} onChange={(e) => setFormSiswa({...formSiswa, sekolahAsal: e.target.value})} className="w-full rounded-lg border p-2.5 text-gray-900 bg-white outline-none focus:border-[#0F3D8C]" /></div>

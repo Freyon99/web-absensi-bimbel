@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cek:konsistensi": "node scripts/cek-konsistensi.mjs",
+    "test:e2e": "node scripts/uji-e2e.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

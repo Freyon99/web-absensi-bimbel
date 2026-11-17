@@ -3,6 +3,8 @@ import { comparePassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
 import { cekRateLimiter } from "@/lib/rate-limit"
 import { setCookieToken } from "@/lib/api-guard"
+import { bentukUserPublik } from "@/lib/user"
+import { ambilIpClient } from "@/lib/ip"
 import { z } from "zod"
 
 const loginSchema = z.object({
@@ -16,13 +18,24 @@ export async function POST(req: Request) {
 
     const data = loginSchema.parse(body)
 
-    // Pembatas percobaan login per email + IP untuk mencegah brute-force.
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const rate = cekRateLimiter(`login:${ip}:${data.email.toLowerCase()}`)
-    if (!rate.ok) {
+    // Pembatas percobaan login. Dua lapis: per email (tidak bisa dilewati
+    // dengan memalsukan IP) dan per email+IP.
+    const ip = ambilIpClient(req)
+    const emailKecil = data.email.toLowerCase()
+
+    const batasEmail = cekRateLimiter(`login-email:${emailKecil}`)
+    if (!batasEmail.ok) {
       return Response.json(
         { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
-        { status: 429, headers: { "Retry-After": String(rate.cobaLagiDalamDetik) } }
+        { status: 429, headers: { "Retry-After": String(batasEmail.cobaLagiDalamDetik) } }
+      )
+    }
+
+    const batasIp = cekRateLimiter(`login-ip:${ip}:${emailKecil}`)
+    if (!batasIp.ok) {
+      return Response.json(
+        { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
+        { status: 429, headers: { "Retry-After": String(batasIp.cobaLagiDalamDetik) } }
       )
     }
 
@@ -33,12 +46,14 @@ export async function POST(req: Request) {
     })
 
     if (!user) {
+      // Jangan bedakan "email tidak terdaftar" dan "password salah" supaya
+      // penyerang tidak bisa menebak akun yang valid.
       return Response.json(
         {
-          message: "User tidak ditemukan",
+          message: "Email atau password salah",
         },
         {
-          status: 404,
+          status: 401,
         }
       )
     }
@@ -51,7 +66,7 @@ export async function POST(req: Request) {
     if (!isValidPassword) {
       return Response.json(
         {
-          message: "Password salah",
+          message: "Email atau password salah",
         },
         {
           status: 401,
@@ -64,7 +79,7 @@ export async function POST(req: Request) {
       role: user.peran,
     })
 
-    const { id, password, ...safeUser } = user
+    const safeUser = bentukUserPublik(user)
 
     const res = Response.json({ token, user: safeUser })
     // Sesi disimpan sebagai cookie HttpOnly supaya tidak bisa dibaca JavaScript.

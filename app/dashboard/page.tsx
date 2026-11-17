@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useNotification } from "@/context/NotificationContext";
 import { logout } from "@/lib/session";
 import { fetchApi } from "@/lib/api-client";
+import { KELAS_OPTIONS } from "@/lib/kelas";
 
 interface UserProfile {
   nama: string;
@@ -77,22 +78,17 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [allMurid, setAllMurid] = useState<Murid[]>([]);
   const [riwayatAbsenGuru, setRiwayatAbsenGuru] = useState<LogAbsenGuru[]>([]);
+  const [totalAbsenGuru, setTotalAbsenGuru] = useState(0);
   const [absenSiswa, setAbsenSiswa] = useState<Record<string, string>>({});
+  // Murid yang sudah diabsen hari ini (oleh guru manapun) tidak ditampilkan lagi.
+  const [terabsenHariIni, setTerabsenHariIni] = useState<Set<string>>(new Set());
+  // Ringkasan di server: total murid + sisa yang belum diabsen per kelas.
+  const [terabsenPerKelas, setTerabsenPerKelas] = useState<Record<string, number>>({});
+  const [ringkasanMurid, setRingkasanMurid] = useState<{
+    total: number;
+    perKelas: Record<string, number>;
+  }>({ total: 0, perKelas: {} });
   const [isLoading, setIsLoading] = useState(false);
-
-  const kelasList = [
-    "CALISTUNG",
-    "SD_1",
-    "SD_2",
-    "SD_3",
-    "SD_4",
-    "SD_5",
-    "SD_6",
-    "SMP_1",
-    "SMP_2",
-    "SMP_3",
-    "SMK_1",
-  ];
 
   // Tutup dropdown profil & drawer mobile saat klik di luar
   useEffect(() => {
@@ -131,7 +127,7 @@ export default function DashboardPage() {
       }
 
       setUser(parsedUser);
-      await Promise.all([fetchDataMurid(), fetchRiwayatAbsenGuru()]);
+      await Promise.all([fetchRingkasanMurid(), fetchRiwayatAbsenGuru(), fetchAbsensiHariIni()]);
 
       setIsLoadingGlobal(false);
     };
@@ -139,25 +135,63 @@ export default function DashboardPage() {
     checkGuruSession();
   }, [router, setIsLoadingGlobal]);
 
-  async function fetchDataMurid() {
+  async function fetchRingkasanMurid() {
     try {
-      const res = await fetchApi("/api/murid");
+      const res = await fetchApi("/api/murid/ringkasan");
       if (res.ok) {
-        setAllMurid(await res.json());
+        setRingkasanMurid(await res.json());
       }
     } catch (error) {
-      console.error("Gagal memuat data murid:", error);
+      console.error("Gagal memuat ringkasan murid:", error);
     }
   }
 
+  // Data murid diambil ulang setiap kali kelas yang dibuka berubah.
+  useEffect(() => {
+    const muat = async () => {
+      try {
+        const res = await fetchApi(`/api/murid?kelas=${encodeURIComponent(kelasAktif)}`);
+        if (res.ok) {
+          const data: Murid[] = await res.json();
+          setAllMurid(data);
+        }
+      } catch (error) {
+        console.error("Gagal memuat data murid:", error);
+      }
+    };
+    void muat();
+  }, [kelasAktif]);
+
   async function fetchRiwayatAbsenGuru() {
     try {
-      const res = await fetchApi("/api/absensi-guru");
+      const res = await fetchApi("/api/absensi-guru?batas=500");
       if (res.ok) {
-        setRiwayatAbsenGuru(await res.json());
+        const data = await res.json();
+        setRiwayatAbsenGuru(data.data);
+        setTotalAbsenGuru(data.total);
       }
     } catch (error) {
       console.error("Gagal memuat log absen guru:", error);
+    }
+  }
+
+  // Murid yang sudah diabsen hari ini disembunyikan dari daftar absensi guru.
+  async function fetchAbsensiHariIni() {
+    try {
+      const res = await fetchApi("/api/absensi?hariIni=1");
+      if (res.ok) {
+        const data: { muridId: string; murid?: { kelas?: string } }[] = await res.json();
+        setTerabsenHariIni(new Set(data.map((item) => item.muridId)));
+
+        const hitung: Record<string, number> = {};
+        for (const item of data) {
+          const kelas = item.murid?.kelas;
+          if (kelas) hitung[kelas] = (hitung[kelas] || 0) + 1;
+        }
+        setTerabsenPerKelas(hitung);
+      }
+    } catch (error) {
+      console.error("Gagal memuat absensi murid hari ini:", error);
     }
   }
 
@@ -215,38 +249,72 @@ export default function DashboardPage() {
   };
 
   const handleSimpanAbsensiSiswa = async () => {
-    if (!user || muridPerKelas.length === 0) return;
+    if (!user || muridBelumAbsen.length === 0) return;
 
     setIsLoading(true);
     let successCount = 0;
+    let gagal: { nama: string; pencatat: string | null }[] = [];
 
     try {
-      for (const murid of muridPerKelas) {
-        const statusSiswa = absenSiswa[murid.id] || "ALPHA";
+      // Semua murid dikirim bersamaan: satu kelas selesai jauh lebih cepat.
+      const hasil = await Promise.all(
+        muridBelumAbsen.map(async (murid) => {
+          const statusSiswa = absenSiswa[murid.id] || "ALPHA";
 
-        const res = await fetchApi("/api/absensi", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            muridId: murid.id,
-            status: statusSiswa,
-          }),
-        });
+          try {
+            const res = await fetchApi("/api/absensi", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                muridId: murid.id,
+                status: statusSiswa,
+              }),
+            });
 
-        if (res.ok) successCount++;
+            if (res.ok) return { ok: true as const };
+
+            const data = await res.json().catch(() => null);
+            return {
+              ok: false as const,
+              nama: murid.namaLengkap,
+              pencatat: data?.pencatat ?? null,
+            };
+          } catch {
+            return { ok: false as const, nama: murid.namaLengkap, pencatat: null };
+          }
+        })
+      );
+
+      successCount = hasil.filter((h) => h.ok).length;
+      gagal = hasil.filter((h) => !h.ok) as { nama: string; pencatat: string | null }[];
+
+      if (successCount > 0) {
+        showNotification(
+          "Berhasil Disimpan",
+          `Sukses mencatat ${successCount} data absensi siswa Kelas ${formatKelas(kelasAktif)}!`,
+          true
+        );
       }
 
-      showNotification(
-        "Berhasil Disimpan",
-        `Sukses mencatat ${successCount} data absensi siswa Kelas ${formatKelas(kelasAktif)}!`,
-        true
-      );
+      if (gagal.length > 0) {
+        const daftar = gagal
+          .slice(0, 5)
+          .map((item) => (item.pencatat ? `${item.nama} (oleh ${item.pencatat})` : item.nama))
+          .join(", ");
+        showNotification(
+          "Sebagian Tidak Bisa Diabsen",
+          `${gagal.length} murid sudah diabsen hari ini dan terkunci: ${daftar}${gagal.length > 5 ? ", ..." : ""}. Minta admin bila perlu koreksi.`,
+          false
+        );
+      }
     } catch {
       showNotification("Gagal Menyimpan", "Terjadi kegagalan sistem saat menyimpan absensi", false);
     } finally {
       setIsLoading(false);
+      // Daftar disegarkan: murid yang baru dicatat hilang dari pilihan guru.
+      fetchAbsensiHariIni();
     }
   };
 
@@ -269,12 +337,18 @@ export default function DashboardPage() {
     (m) => normalizeKelas(m.kelas) === normalizeKelas(kelasAktif)
   );
 
-  const jumlahHadir = Object.values(absenSiswa).filter((s) => s === "HADIR").length;
+  // Murid yang sudah diabsen hari ini tampil di daftar guru: satu hari satu absen.
+  const muridBelumAbsen = muridPerKelas.filter((m) => !terabsenHariIni.has(m.id));
+  const jumlahTerabsen = muridPerKelas.length - muridBelumAbsen.length;
+
+  const jumlahHadir = muridBelumAbsen.filter(
+    (m) => (absenSiswa[m.id] || "ALPHA") === "HADIR"
+  ).length;
 
   const tandaiSemuaHadir = () => {
     setAbsenSiswa((prev) => {
       const next = { ...prev };
-      for (const m of muridPerKelas) next[m.id] = "HADIR";
+      for (const m of muridBelumAbsen) next[m.id] = "HADIR";
       return next;
     });
   };
@@ -282,7 +356,7 @@ export default function DashboardPage() {
   const resetStatus = () => {
     setAbsenSiswa((prev) => {
       const next = { ...prev };
-      for (const m of muridPerKelas) next[m.id] = "ALPHA";
+      for (const m of muridBelumAbsen) next[m.id] = "ALPHA";
       return next;
     });
   };
@@ -337,11 +411,10 @@ export default function DashboardPage() {
       </p>
 
       <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto">
-        {kelasList.map((kelas) => {
+        {KELAS_OPTIONS.map((kelas) => {
           const aktif = menuAktif === "Absensi Siswa" && kelasAktif === kelas;
-          const jumlah = allMurid.filter(
-            (m) => normalizeKelas(m.kelas) === normalizeKelas(kelas)
-          ).length;
+          const sisa =
+            (ringkasanMurid.perKelas[kelas] ?? 0) - (terabsenPerKelas[kelas] ?? 0);
 
           return (
             <button
@@ -371,7 +444,7 @@ export default function DashboardPage() {
                   aktif ? "bg-[#0F3D8C]/10 text-[#0F3D8C]" : "bg-white/10 text-blue-100"
                 }`}
               >
-                {jumlah}
+                {sisa}
               </span>
             </button>
           );
@@ -611,7 +684,7 @@ export default function DashboardPage() {
                   </svg>
                 </span>
               </div>
-              <p className="mt-3 text-3xl font-bold text-[#0F3D8C]">{allMurid.length}</p>
+              <p className="mt-3 text-3xl font-bold text-[#0F3D8C]">{ringkasanMurid.total}</p>
               <p className="mt-1 text-xs text-gray-400">Siswa terdaftar</p>
             </div>
 
@@ -634,7 +707,7 @@ export default function DashboardPage() {
                   </svg>
                 </span>
               </div>
-              <p className="mt-3 text-3xl font-bold text-emerald-700">{kelasList.length}</p>
+              <p className="mt-3 text-3xl font-bold text-emerald-700">{KELAS_OPTIONS.length}</p>
               <p className="mt-1 text-xs text-gray-400">Tingkat tersedia</p>
             </div>
 
@@ -688,7 +761,7 @@ export default function DashboardPage() {
                   </svg>
                 </span>
               </div>
-              <p className="mt-3 text-3xl font-bold text-rose-700">{riwayatAbsenGuru.length}</p>
+              <p className="mt-3 text-3xl font-bold text-rose-700">{totalAbsenGuru}</p>
               <p className="mt-1 text-xs text-gray-400">Log kehadiran</p>
             </div>
           </div>{/* TAMPILAN 1: ABSENSI GURU */}
@@ -777,11 +850,19 @@ export default function DashboardPage() {
 
                 <div className="flex flex-wrap items-center gap-3 text-sm">
                   <span className="rounded-lg bg-blue-50 px-3 py-1 font-semibold text-[#0F3D8C]">
-                    {muridPerKelas.length} siswa
+                    {muridBelumAbsen.length} siswa
                   </span>
                   <span className="rounded-lg bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
                     {jumlahHadir} hadir
                   </span>
+                  {jumlahTerabsen > 0 && (
+                    <span
+                      className="rounded-lg bg-gray-100 px-3 py-1 font-semibold text-gray-500"
+                      title="Murid yang sudah diabsen hari ini tidak bisa diabsen ulang"
+                    >
+                      {jumlahTerabsen} sudah diabsen
+                    </span>
+                  )}
 
                   <button
                     type="button"
@@ -821,8 +902,19 @@ export default function DashboardPage() {
                           di database.
                         </td>
                       </tr>
+                    ) : muridBelumAbsen.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-5 py-12 text-center text-gray-400">
+                          Semua murid{" "}
+                          <span className="font-bold text-[#0F3D8C]">
+                            Kelas {formatKelas(kelasAktif)}
+                          </span>{" "}
+                          sudah diabsen hari ini dan tidak bisa diabsen ulang. Koreksi
+                          hanya bisa dilakukan admin.
+                        </td>
+                      </tr>
                     ) : (
-                      muridPerKelas.map((murid, index) => {
+                      muridBelumAbsen.map((murid, index) => {
                         const status = absenSiswa[murid.id] || "ALPHA";
 
                         return (
@@ -859,10 +951,11 @@ export default function DashboardPage() {
                 </table>
               </div>
 
-              {muridPerKelas.length > 0 && (
+              {muridBelumAbsen.length > 0 && (
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-gray-500">
-                    {jumlahHadir} dari {muridPerKelas.length} siswa tercatat hadir.
+                    {jumlahHadir} dari {muridBelumAbsen.length} siswa tercatat hadir.
+                    {jumlahTerabsen > 0 && ` ${jumlahTerabsen} lainnya sudah diabsen.`}
                   </p>
 
                   <button

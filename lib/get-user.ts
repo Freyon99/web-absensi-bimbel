@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers"
 import jwt from "jsonwebtoken"
 import prisma from "@/lib/prisma" // 1. Tambahkan import prisma di sini
+import { bentukUserPublik } from "@/lib/user"
 
 const JWT_SECRET = process.env.JWT_SECRET!
 
@@ -36,9 +37,7 @@ export async function getUserFromHeader() {
     throw new Error("User tidak ditemukan")
   }
 
-  // 3. Keluarkan password dan id agar tidak ikut dikirim ke frontend
-  const { password, id, ...safeUser } = user
-
+  // 3. Keluarkan password dan timestamp agar tidak ikut dikirim ke frontend
   // 4. Kembalikan data user yang sudah aman (nama, email, peran, dll)
-  return safeUser
+  return bentukUserPublik(user)
 }

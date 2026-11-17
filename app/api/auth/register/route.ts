@@ -1,6 +1,7 @@
 import  prisma  from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
+import { bentukUserPublik } from "@/lib/user"
 import { responGuard, wajibAdmin } from "@/lib/api-guard"
 import { z } from "zod"
 
@@ -48,8 +49,8 @@ export async function POST(req: Request) {
     })
 
     // Sembunyikan field id dan password dari frontend
-    const { password, id, ...safeUser } = user
-    
+    const safeUser = bentukUserPublik(user)
+
     return Response.json({
       token,
       user: safeUser, // noHp otomatis ikut terbawa di sini
