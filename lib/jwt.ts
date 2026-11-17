@@ -7,7 +7,3 @@ export function signToken(payload: object) {
     expiresIn: "8h",
   })
 }
-
-export function verifyToken(token: string) {
-  return jwt.verify(token, JWT_SECRET)
-}
