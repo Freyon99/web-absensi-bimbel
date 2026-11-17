@@ -132,7 +132,7 @@ export default function DashboardPage() {
         </aside>
 
         <main className="min-w-0 flex-1 space-y-6 p-4 sm:p-8">
-          {/* HERO */}
+          {/* Hero absensi */}
           <HeroAbsensi
             nama={user.nama}
             isLoading={isLoading}
@@ -145,7 +145,7 @@ export default function DashboardPage() {
             onAbsenPulang={handleAbsenGuruPulang}
           />
 
-          {/* STAT CARDS */}
+          {/* Kartu statistik */}
           <StatCards
             totalSiswa={ringkasanMurid.total}
             sudahAbsenDatang={sudahAbsenDatang}
@@ -153,10 +153,10 @@ export default function DashboardPage() {
             totalAbsenGuru={totalAbsenGuru}
           />
 
-          {/* TAMPILAN 1: ABSENSI GURU */}
+          {/* Riwayat absensi guru */}
           {menuAktif === "Absensi Guru" && <RiwayatAbsensiGuru riwayat={riwayatAbsenGuru} />}
 
-          {/* TAMPILAN 2: ABSENSI SISWA */}
+          {/* Absensi siswa */}
           {menuAktif === "Absensi Siswa" && (
             <AbsensiSiswa
               user={user}

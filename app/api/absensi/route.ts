@@ -6,20 +6,16 @@ import { Kelas, Prisma } from "@prisma/client"
 import { KELAS_OPTIONS } from "@/lib/kelas"
 import { mulaiHari, akhirHari, dariISOHari } from "@/lib/tanggal"
 
-// UPDATE: Hapus guruId dari skema Zod karena frontend tidak boleh mengirimkannya lagi
 const absensiSchema = z.object({
   muridId: z.string().uuid("Format muridId harus UUID"),
   status: z.enum(["HADIR", "IZIN", "SAKIT", "ALPHA"]),
 })
 
-// 1. ENDPOINT: MENCATAT ABSENSI MURID (POST)
 export async function POST(req: Request) {
   try {
-    // A. Token diverifikasi di backend, ID pencatat diambil dari token (bukan dari body).
     // Absensi murid dipakai di halaman Admin maupun dashboard Guru, jadi cukup login.
     const payload = await wajibAuth(req)
 
-    // B. Ambil bodi request dan validasi menggunakan Zod (hanya muridId & status)
     const body = await req.json().catch(() => null)
     if (!body) {
       return responError(400, "Body permintaan tidak valid")
@@ -44,7 +40,6 @@ export async function POST(req: Request) {
     const akhirHari = new Date()
     akhirHari.setHours(23, 59, 59, 999)
 
-    // C. Satu murid hanya punya satu absensi per hari. Baris yang sudah ada
     // dikunci: guru lain tidak boleh menulisnya lagi.
     // Kunci advisory per (murid, tanggal) menutup balapan dua guru yang
     // menyimpan absensi murid yang sama pada detik yang bersamaan.
@@ -91,7 +86,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // D. Simpan ke database PostgreSQL
     return responJson(
       { message: "Absensi murid berhasil dicatat", data: hasil.data },
       { status: 201 },
@@ -112,7 +106,6 @@ export async function POST(req: Request) {
   }
 }
 
-// 2. ENDPOINT: LIHAT RIWAYAT ABSENSI MURID (GET)
 export async function GET(req: Request) {
   try {
     // WAJIB LOGIN: riwayat absensi berisi nama murid & guru

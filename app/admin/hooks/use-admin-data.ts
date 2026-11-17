@@ -196,7 +196,6 @@ export function useAdminData({
     }
   }
 
-  // 1. Fungsi untuk membuka modal edit dan mengisi form dengan data guru yang dipilih
   const openEditGuruModal = (guru: UserProfile) => {
     setSelectedGuru(guru)
     setFormGuru({
@@ -208,7 +207,6 @@ export function useAdminData({
     setModalType("editGuru") // Memicu modal edit guru muncul
   }
 
-  // 2. Fungsi untuk mengirim data perubahan guru ke API backend (PUT)
   const handleEditGuru = async (e: FormEvent) => {
     e.preventDefault()
     if (!selectedGuru) return

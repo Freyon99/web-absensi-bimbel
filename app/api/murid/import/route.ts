@@ -54,9 +54,7 @@ function normalisasiKunci(teks: string): string {
   return teks.toLowerCase().replace(/[^a-z0-9]/g, "")
 }
 
-// =========================
 // IMPORT DATA MURID (CSV / Excel)
-// =========================
 export async function POST(req: Request) {
   try {
     const payload = await wajibAdmin(req)
@@ -130,9 +128,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // =========================
     // SIAPKAN REFERENSI: guru & data yang sudah ada
-    // =========================
     const [semuaPengguna, muridLama] = await Promise.all([
       prisma.pengguna.findMany({ select: { id: true, nama: true, email: true } }),
       prisma.murid.findMany({ select: { namaLengkap: true, noHpOrangTua: true } }),
@@ -152,9 +148,7 @@ export async function POST(req: Request) {
         ),
     )
 
-    // =========================
     // VALIDASI BARIS DEMI BARIS
-    // =========================
     const dataValid: { row: number; data: DataMuridBaru }[] = []
     const kendala: KendalaBaris[] = []
     let totalBaris = 0
@@ -257,9 +251,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // =========================
-    // SIMPAN KE DATABASE
-    // =========================
     let berhasil = 0
 
     try {

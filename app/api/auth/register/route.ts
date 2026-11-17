@@ -11,14 +11,10 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   peran: z.enum(["ADMIN", "GURU"]),
-  noHp: z.string().optional(), // ➕ Tambahkan ini ke skema Zod
 })
 
 export async function POST(req: Request) {
   try {
-    // =========================
-    // KUNCI: HANYA ADMIN yang boleh mendaftarkan akun baru
-    // =========================
     await wajibAdmin(req)
 
     const body = await req.json()
@@ -40,7 +36,6 @@ export async function POST(req: Request) {
         email: data.email,
         password: hashedPassword,
         peran: data.peran,
-        noHp: data.noHp, // ➕ Daftarkan input noHp ke database Prisma
       },
     })
 

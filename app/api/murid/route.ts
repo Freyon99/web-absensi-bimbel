@@ -24,21 +24,12 @@ const muridSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    // =========================
-    // KUNCI: HANYA ADMIN yang boleh menambah data murid
-    // =========================
     const payload = await wajibAdmin(req)
 
-    // =========================
-    // AMBIL BODY
-    // =========================
     const body = await req.json()
 
     const data = muridSchema.parse(body)
 
-    // =========================
-    // SIMPAN KE DATABASE
-    // =========================
     const muridBaru = await prisma.murid.create({
       data: {
         namaLengkap: data.namaLengkap,
@@ -87,14 +78,10 @@ export async function POST(req: Request) {
     return responError(500, "Gagal menambahkan murid")
   }
 }
-// =========================
 // AMBIL SEMUA MURID
-// =========================
 export async function GET(req: Request) {
   try {
-    // =========================
     // WAJIB LOGIN: data murid hanya untuk pengguna terautentikasi
-    // =========================
     await wajibAuth(req)
 
     // Filter di server supaya dashboard cukup mengambil kelas yang dibuka.

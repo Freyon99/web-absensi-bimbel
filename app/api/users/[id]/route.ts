@@ -33,7 +33,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         nama: true,
         email: true,
         peran: true,
-        noHp: true, // ➕ Izinkan noHp terpilih agar muncul setelah diupdate
       },
     })
 

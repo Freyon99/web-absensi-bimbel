@@ -4,9 +4,6 @@ import { responGuard, wajibAdmin } from "@/lib/api-guard"
 
 export async function GET(req: Request) {
   try {
-    // =========================
-    // KUNCI: HANYA ADMIN yang boleh melihat daftar pengguna
-    // =========================
     await wajibAdmin(req)
 
     const allUsers = await prisma.pengguna.findMany({
@@ -15,7 +12,6 @@ export async function GET(req: Request) {
         nama: true,
         email: true,
         peran: true,
-        noHp: true, // ➕ WAJIB ditambahkan agar nomor HP ditarik dari database
       },
     })
     return responJson(allUsers)

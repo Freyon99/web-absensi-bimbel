@@ -28,7 +28,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen max-w-full flex flex-col bg-[#FFFDF8] overflow-hidden text-gray-900">
-      {/* Navbar Atas */}
+      {/* Navbar */}
       <AdminNavbar
         user={admin.user}
         showProfileMenu={admin.showProfileMenu}
@@ -38,12 +38,12 @@ export default function AdminPage() {
         onLogout={admin.triggerLogoutValidation}
       />
 
-      {/* Konten Utama Layout Dinamik */}
+      {/* Konten utama */}
       <div className="flex w-full max-w-full min-h-[calc(100vh-72px)] overflow-hidden">
         <AdminSidebar menuAktif={admin.menuAktif} onPilihMenu={admin.pilihMenu} />
 
         <main className="flex-1 min-w-0 p-4 sm:p-8 bg-[#FFFDF8] overflow-y-auto">
-          {/* MENU AWAL: DASHBOARD STATISTIK */}
+          {/* Dashboard */}
           {admin.menuAktif === "Dashboard" && (
             <DashboardSection
               dashboardSearch={admin.dashboardSearch}
@@ -66,7 +66,7 @@ export default function AdminPage() {
             />
           )}
 
-          {/* MENU 1: DATA SISWA */}
+          {/* Data Siswa */}
           {admin.menuAktif === "Data Siswa" && (
             <SiswaSection
               searchQuery={admin.searchQuery}
@@ -91,7 +91,7 @@ export default function AdminPage() {
             />
           )}
 
-          {/* MENU 2: DATA GURU (SINKRON REFERENSI GAMBAR) */}
+          {/* Data Guru */}
           {admin.menuAktif === "Data Guru" && (
             <GuruSection
               guruList={admin.guruList}
@@ -102,7 +102,7 @@ export default function AdminPage() {
             />
           )}
 
-          {/* MENU 3: ABSENSI GURU */}
+          {/* Absensi Guru */}
           {admin.menuAktif === "Absensi Guru" && (
             <AbsensiGuruSection
               absensiGuruTampil={admin.absensiGuruTampil}
@@ -111,14 +111,14 @@ export default function AdminPage() {
             />
           )}
 
-          {/* MENU 4: ABSENSI SISWA */}
+          {/* Absensi Siswa */}
           {admin.menuAktif === "Absensi Siswa" && (
             <KehadiranSiswa showNotification={showNotification} />
           )}
         </main>
       </div>
 
-      {/* POP-UP MODAL 1: FORM TAMBAH GURU + INPUT NO HP */}
+      {/* Modal: tambah guru */}
       {admin.modalType === "tambahGuru" && (
         <ModalTambahGuru
           formGuru={admin.formGuru}
@@ -128,7 +128,7 @@ export default function AdminPage() {
         />
       )}
 
-      {/* POP-UP MODAL 2: FORM INPUT & EDIT DATA SISWA */}
+      {/* Modal: tambah/edit siswa */}
       {(admin.modalType === "tambahSiswa" || admin.modalType === "editSiswa") && (
         <ModalFormSiswa
           modalType={admin.modalType}
@@ -140,12 +140,12 @@ export default function AdminPage() {
         />
       )}
 
-      {/* POP-UP MODAL 3: LIHAT DETAIL KARTU SISWA */}
+      {/* Modal: detail siswa */}
       {admin.modalType === "detailSiswa" && (
         <ModalDetailSiswa siswa={admin.selectedSiswa} onClose={() => admin.setModalType(null)} />
       )}
 
-      {/* POP-UP MODAL 1B: FORM EDIT DATA GURU (BARU) */}
+      {/* Modal: edit guru */}
       {admin.modalType === "editGuru" && admin.selectedGuru && (
         <ModalEditGuru
           formGuru={admin.formGuru}
@@ -155,7 +155,7 @@ export default function AdminPage() {
         />
       )}
 
-      {/* POP-UP MODAL 4: HASIL IMPORT DATA MURID */}
+      {/* Modal: hasil import */}
       <HasilImportModal
         hasilImport={importEkspor.hasilImport}
         onTutup={importEkspor.tutupHasilImport}

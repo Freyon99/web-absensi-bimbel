@@ -15,9 +15,7 @@ function formatTanggalEkspor(tanggal: Date): string {
   return `${hari}/${bulan}/${tanggal.getFullYear()}`
 }
 
-// =========================
 // EXPORT DATA MURID (CSV / Excel)
-// =========================
 export async function GET(req: Request) {
   try {
     await wajibAdmin(req)

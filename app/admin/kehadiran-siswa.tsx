@@ -97,7 +97,7 @@ export default function KehadiranSiswa({
         />
       </div>
 
-      {/* POP-UP MODAL: KOREKSI ABSENSI SISWA (KHUSUS ADMIN) */}
+      {/* Modal: koreksi absensi (khusus admin) */}
       {absensiTerpilih && (
         <ModalKoreksiAbsensi
           absensiTerpilih={absensiTerpilih}
