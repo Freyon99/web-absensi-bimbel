@@ -1,3 +1,4 @@
+import { responError } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAdmin } from "@/lib/api-guard"
 import {
@@ -91,6 +92,6 @@ export async function GET(req: Request) {
 
     console.error("DETAIL ERROR EXPORT MURID:", error)
 
-    return Response.json({ message: "Gagal mengekspor data murid" }, { status: 500 })
+    return responError(500, "Gagal mengekspor data murid")
   }
 }

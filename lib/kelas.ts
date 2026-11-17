@@ -18,3 +18,8 @@ export const KELAS_OPTIONS = [
 ] as const
 
 export type Kelas = (typeof KELAS_OPTIONS)[number]
+
+/** "SD_1" -> "SD 1" untuk tampilan. */
+export function formatKelas(kelas: string): string {
+  return kelas.replaceAll("_", " ")
+}

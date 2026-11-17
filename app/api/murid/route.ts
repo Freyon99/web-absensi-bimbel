@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { Kelas, Prisma } from "@prisma/client"
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
       },
     })
 
-    return Response.json(
+    return responJson(
       {
         message: "Murid berhasil ditambahkan",
         data: muridBaru,
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
     console.error("DETAIL ERROR DATABASE:", error)
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         {
           message: "Format data tidak valid",
           errors: error.issues,
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
       )
     }
 
-    return Response.json({ message: "Gagal menambahkan murid" }, { status: 500 })
+    return responError(500, "Gagal menambahkan murid")
   }
 }
 // =========================
@@ -126,14 +127,14 @@ export async function GET(req: Request) {
       take: batas,
     })
 
-    return Response.json(semuaMurid)
+    return responJson(semuaMurid)
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     console.error("DETAIL ERROR GET MURID:", error)
 
-    return Response.json(
+    return responJson(
       {
         message: "Gagal mengambil data murid",
       },

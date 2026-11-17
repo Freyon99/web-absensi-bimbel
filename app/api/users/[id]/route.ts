@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { hashPassword } from "@/lib/hash"
@@ -36,18 +37,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     })
 
-    return Response.json({ message: "Data pengguna berhasil diperbarui", data: userDiperbarui })
+    return responJson({ message: "Data pengguna berhasil diperbarui", data: userDiperbarui })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         { message: "Format data tidak valid", errors: error.issues },
         { status: 400 },
       )
     }
-    return Response.json({ message: "Gagal memperbarui pengguna" }, { status: 500 })
+    return responError(500, "Gagal memperbarui pengguna")
   }
 }
 
@@ -60,11 +61,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       where: { id },
     })
 
-    return Response.json({ message: "Akun pengguna berhasil dihapus" })
+    return responJson({ message: "Akun pengguna berhasil dihapus" })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
-    return Response.json({ message: "Gagal menghapus pengguna" }, { status: 500 })
+    return responError(500, "Gagal menghapus pengguna")
   }
 }

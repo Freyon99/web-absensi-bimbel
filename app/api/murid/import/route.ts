@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAdmin } from "@/lib/api-guard"
 import {
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
     try {
       formData = await req.formData()
     } catch {
-      return Response.json(
+      return responJson(
         {
           message: "File tidak ditemukan. Kirim file pada kolom 'file' dengan multipart/form-data.",
         },
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
     const entri = formData.get("file")
 
     if (!entri || typeof entri === "string") {
-      return Response.json(
+      return responJson(
         { message: "File tidak ditemukan. Unggah file pada kolom 'file'." },
         { status: 400 },
       )
@@ -85,11 +86,11 @@ export async function POST(req: Request) {
     const file = entri as File
 
     if (file.size === 0) {
-      return Response.json({ message: "File yang diunggah kosong." }, { status: 400 })
+      return responError(400, "File yang diunggah kosong.")
     }
 
     if (file.size > UKURAN_MAKS_FILE) {
-      return Response.json({ message: "Ukuran file maksimal 5 MB." }, { status: 400 })
+      return responError(400, "Ukuran file maksimal 5 MB.")
     }
 
     let baris: string[][]
@@ -100,11 +101,11 @@ export async function POST(req: Request) {
         error instanceof FileImportError
           ? error.message
           : "File tidak dapat dibaca. Pastikan file tidak rusak."
-      return Response.json({ message: pesan }, { status: 400 })
+      return responError(400, pesan)
     }
 
     if (baris.length < 2) {
-      return Response.json(
+      return responJson(
         {
           message: "File tidak memiliki baris data. Baris pertama harus berisi header kolom.",
         },
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
     }
 
     if (baris.length - 1 > BARIS_MAKS_FILE) {
-      return Response.json(
+      return responJson(
         { message: `Jumlah baris melewati batas maksimal ${BARIS_MAKS_FILE} baris.` },
         { status: 400 },
       )
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
 
     const kunciHeader = terjemahHeader(baris[0])
     if (jumlahHeaderDikenali(baris[0]) === 0) {
-      return Response.json(
+      return responJson(
         {
           message: "Header kolom tidak dikenali. Unduh template import untuk format yang benar.",
         },
@@ -246,7 +247,7 @@ export async function POST(req: Request) {
     const gagal = kendala.filter((item) => !item.message.startsWith("Duplikat:")).length
 
     if (dataValid.length === 0) {
-      return Response.json(
+      return responJson(
         {
           message: "Tidak ada baris data yang valid untuk diimpor.",
           summary: { total: totalBaris, success: 0, skipped: dilewatiDuplikat, failed: gagal },
@@ -291,7 +292,7 @@ export async function POST(req: Request) {
 
     const gagalAkhir = kendala.filter((item) => !item.message.startsWith("Duplikat:")).length
 
-    return Response.json({
+    return responJson({
       message:
         berhasil > 0
           ? `Import selesai: ${berhasil} data murid baru berhasil ditambahkan.`
@@ -310,6 +311,6 @@ export async function POST(req: Request) {
 
     console.error("DETAIL ERROR IMPORT MURID:", error)
 
-    return Response.json({ message: "Gagal mengimpor data murid" }, { status: 500 })
+    return responError(500, "Gagal mengimpor data murid")
   }
 }

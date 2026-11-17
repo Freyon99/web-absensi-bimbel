@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAuth } from "@/lib/api-guard"
 import { Prisma } from "@prisma/client"
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     })
 
     if (sudahAbsenHariIni) {
-      return Response.json(
+      return responJson(
         { message: "Anda sudah melakukan Absen Datang hari ini. Batas absensi adalah 1x sehari." },
         { status: 400 },
       )
@@ -36,16 +37,13 @@ export async function POST(req: Request) {
       data: { guruId: payload.id },
     })
 
-    return Response.json(
-      { message: "Absen datang berhasil dicatat", data: logAbsen },
-      { status: 201 },
-    )
+    return responJson({ message: "Absen datang berhasil dicatat", data: logAbsen }, { status: 201 })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     console.error(error)
-    return Response.json({ message: "Gagal mencatat absen guru" }, { status: 500 })
+    return responError(500, "Gagal mencatat absen guru")
   }
 }
 
@@ -75,7 +73,7 @@ export async function PUT(req: Request) {
     })
 
     if (!absenHariIni) {
-      return Response.json(
+      return responJson(
         {
           message:
             "Gagal: Anda belum melakukan Absen Datang hari ini, atau Anda sudah melakukan Absen Pulang.",
@@ -91,13 +89,13 @@ export async function PUT(req: Request) {
       },
     })
 
-    return Response.json({ message: "Absen pulang berhasil dicatat", data: absenDiperbarui })
+    return responJson({ message: "Absen pulang berhasil dicatat", data: absenDiperbarui })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     console.error(error)
-    return Response.json({ message: "Gagal mencatat absen pulang" }, { status: 500 })
+    return responError(500, "Gagal mencatat absen pulang")
   }
 }
 
@@ -148,12 +146,12 @@ export async function GET(req: Request) {
 
     // `total` memungkinkan klien menampilkan hitungan sebenarnya walau data
     // yang dikirim dibatasi.
-    return Response.json({ data: riwayatAbsen, total })
+    return responJson({ data: riwayatAbsen, total })
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     console.error("Gagal memuat rekap data absensi di tingkat database:", error)
-    return Response.json({ message: "Gagal mengambil riwayat" }, { status: 500 })
+    return responError(500, "Gagal mengambil riwayat")
   }
 }

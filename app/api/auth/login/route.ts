@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { comparePassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 
     const batasEmail = cekRateLimiter(`login-email:${emailKecil}`)
     if (!batasEmail.ok) {
-      return Response.json(
+      return responJson(
         { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
         { status: 429, headers: { "Retry-After": String(batasEmail.cobaLagiDalamDetik) } },
       )
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
 
     const batasIp = cekRateLimiter(`login-ip:${ip}:${emailKecil}`)
     if (!batasIp.ok) {
-      return Response.json(
+      return responJson(
         { message: "Terlalu banyak percobaan login. Silakan coba lagi nanti." },
         { status: 429, headers: { "Retry-After": String(batasIp.cobaLagiDalamDetik) } },
       )
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     if (!user) {
       // Jangan bedakan "email tidak terdaftar" dan "password salah" supaya
       // penyerang tidak bisa menebak akun yang valid.
-      return Response.json(
+      return responJson(
         {
           message: "Email atau password salah",
         },
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     const isValidPassword = await comparePassword(data.password, user.password)
 
     if (!isValidPassword) {
-      return Response.json(
+      return responJson(
         {
           message: "Email atau password salah",
         },
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
 
     const safeUser = bentukUserPublik(user)
 
-    const res = Response.json({ token, user: safeUser })
+    const res = responJson({ token, user: safeUser })
     // Sesi disimpan sebagai cookie HttpOnly supaya tidak bisa dibaca JavaScript.
     setCookieToken(req, res, token)
     return res
@@ -86,12 +87,12 @@ export async function POST(req: Request) {
     console.error("DETAIL ERROR LOGIN:", error)
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         { message: "Format data tidak valid", errors: error.issues },
         { status: 400 },
       )
     }
 
-    return Response.json({ message: "Terjadi kesalahan" }, { status: 500 })
+    return responError(500, "Terjadi kesalahan")
   }
 }

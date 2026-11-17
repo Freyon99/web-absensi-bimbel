@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { responGuard, wajibAuth } from "@/lib/api-guard"
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
     // B. Ambil bodi request dan validasi menggunakan Zod (hanya muridId & status)
     const body = await req.json().catch(() => null)
     if (!body) {
-      return Response.json({ message: "Body permintaan tidak valid" }, { status: 400 })
+      return responError(400, "Body permintaan tidak valid")
     }
 
     const data = absensiSchema.parse(body)
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     })
 
     if (!murid) {
-      return Response.json({ message: "Murid tidak ditemukan" }, { status: 404 })
+      return responError(404, "Murid tidak ditemukan")
     }
 
     const awalHari = new Date()
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
     if (hasil.status === "konflik") {
       // Satu murid hanya satu absensi per hari dan pencatatnya mengunci baris ini.
       // Koreksi hanya bisa dilakukan admin lewat PATCH /api/absensi/[id].
-      return Response.json(
+      return responJson(
         {
           message: "Murid sudah diabsen hari ini dan tidak bisa diabsen ulang oleh guru lain.",
           pencatat: hasil.pencatat,
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     }
 
     // D. Simpan ke database PostgreSQL
-    return Response.json(
+    return responJson(
       { message: "Absensi murid berhasil dicatat", data: hasil.data },
       { status: 201 },
     )
@@ -100,14 +101,14 @@ export async function POST(req: Request) {
     if (guard) return guard
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         { message: "Format data tidak valid", errors: error.issues },
         { status: 400 },
       )
     }
 
     console.error("DETAIL ERROR ABSENSI:", error)
-    return Response.json({ message: "Gagal mencatat absensi" }, { status: 500 })
+    return responError(500, "Gagal mencatat absensi")
   }
 }
 
@@ -173,12 +174,12 @@ export async function GET(req: Request) {
       take: batas,
     })
 
-    return Response.json(riwayatAbsensi)
+    return responJson(riwayatAbsensi)
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
     console.error("DETAIL ERROR GET ABSENSI:", error)
-    return Response.json({ message: "Gagal mengambil data riwayat absensi" }, { status: 500 })
+    return responError(500, "Gagal mengambil data riwayat absensi")
   }
 }

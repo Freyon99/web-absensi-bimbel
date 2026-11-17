@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { hashPassword } from "@/lib/hash"
 import { signToken } from "@/lib/jwt"
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     })
 
     if (existingUser) {
-      return Response.json({ message: "Email sudah digunakan" }, { status: 400 })
+      return responError(400, "Email sudah digunakan")
     }
 
     const hashedPassword = await hashPassword(data.password)
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     // Sembunyikan field id dan password dari frontend
     const safeUser = bentukUserPublik(user)
 
-    return Response.json({
+    return responJson({
       token,
       user: safeUser, // noHp otomatis ikut terbawa di sini
     })
@@ -61,12 +62,12 @@ export async function POST(req: Request) {
 
     console.error(error)
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         { message: "Format data tidak valid", errors: error.issues },
         { status: 400 },
       )
     }
 
-    return Response.json({ message: "Terjadi kesalahan" }, { status: 500 })
+    return responError(500, "Terjadi kesalahan")
   }
 }

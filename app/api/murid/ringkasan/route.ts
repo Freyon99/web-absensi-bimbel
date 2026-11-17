@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAuth } from "@/lib/api-guard"
 import { Kelas, Prisma } from "@prisma/client"
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
     const perPembayaran: Record<string, number> = {}
     for (const item of daftarPembayaran) perPembayaran[item.pembayaran] = item._count._all
 
-    return Response.json({
+    return responJson({
       total,
       perKelas,
       perPembayaran,
@@ -61,6 +62,6 @@ export async function GET(req: Request) {
     if (guard) return guard
 
     console.error("DETAIL ERROR RINGKASAN MURID:", error)
-    return Response.json({ message: "Gagal mengambil ringkasan murid" }, { status: 500 })
+    return responError(500, "Gagal mengambil ringkasan murid")
   }
 }

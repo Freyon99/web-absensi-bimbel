@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { responGuard, wajibAdmin } from "@/lib/api-guard"
@@ -15,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json().catch(() => null)
 
     if (!body) {
-      return Response.json({ message: "Body permintaan tidak valid" }, { status: 400 })
+      return responError(400, "Body permintaan tidak valid")
     }
 
     const data = ubahAbsensiSchema.parse(body)
@@ -29,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     })
 
     if (!absensi) {
-      return Response.json({ message: "Catatan absensi tidak ditemukan" }, { status: 404 })
+      return responError(404, "Catatan absensi tidak ditemukan")
     }
 
     const absensiDiperbarui = await prisma.absensi.update({
@@ -41,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
     })
 
-    return Response.json({
+    return responJson({
       message: "Absensi murid berhasil dikoreksi",
       data: absensiDiperbarui,
     })
@@ -50,13 +51,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (guard) return guard
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         { message: "Format data tidak valid", errors: error.issues },
         { status: 400 },
       )
     }
 
     console.error("DETAIL ERROR KOREKSI ABSENSI:", error)
-    return Response.json({ message: "Gagal mengoreksi absensi" }, { status: 500 })
+    return responError(500, "Gagal mengoreksi absensi")
   }
 }

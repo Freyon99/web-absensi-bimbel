@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { responGuard, wajibAdmin } from "@/lib/api-guard"
 
@@ -17,11 +18,11 @@ export async function GET(req: Request) {
         noHp: true, // ➕ WAJIB ditambahkan agar nomor HP ditarik dari database
       },
     })
-    return Response.json(allUsers)
+    return responJson(allUsers)
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
-    return Response.json({ message: "Gagal memuat data pengguna" }, { status: 500 })
+    return responError(500, "Gagal memuat data pengguna")
   }
 }

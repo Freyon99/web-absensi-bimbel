@@ -1,5 +1,7 @@
 import { jwtVerify } from "jose"
 
+import { responError } from "./api-response"
+
 export type Peran = "ADMIN" | "GURU"
 
 export interface AuthPayload {
@@ -75,7 +77,7 @@ export async function wajibAdmin(req: Request): Promise<AuthPayload> {
  */
 export function responGuard(error: unknown): Response | null {
   if (error instanceof AutentikasiError) {
-    return Response.json({ message: error.message }, { status: error.status })
+    return responError(error.status, error.message)
   }
   return null
 }

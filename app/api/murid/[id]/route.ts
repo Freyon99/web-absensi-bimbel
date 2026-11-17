@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { Kelas } from "@prisma/client"
@@ -32,15 +33,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     })
 
     if (!murid) {
-      return Response.json({ message: "Murid tidak ditemukan" }, { status: 404 })
+      return responError(404, "Murid tidak ditemukan")
     }
 
-    return Response.json(murid)
+    return responJson(murid)
   } catch (error) {
     const guard = responGuard(error)
     if (guard) return guard
 
-    return Response.json({ message: "Gagal mengambil data murid" }, { status: 500 })
+    return responError(500, "Gagal mengambil data murid")
   }
 }
 
@@ -56,7 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       where: { id },
       data,
     })
-    return Response.json({
+    return responJson({
       message: "Data murid berhasil diperbarui",
       data: murid,
     })
@@ -67,7 +68,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     console.error("PUT ERROR:", error)
 
     if (error instanceof z.ZodError) {
-      return Response.json(
+      return responJson(
         {
           message: "Format data tidak valid",
           errors: error.issues,
@@ -76,7 +77,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       )
     }
 
-    return Response.json(
+    return responJson(
       {
         message: error instanceof Error ? error.message : "Gagal update murid",
       },
@@ -96,7 +97,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       where: { id },
     })
 
-    return Response.json({
+    return responJson({
       message: "Murid berhasil dihapus",
     })
   } catch (error) {
@@ -104,6 +105,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (guard) return guard
 
     console.error("DELETE MURID ERROR:", error)
-    return Response.json({ message: "Gagal menghapus murid" }, { status: 500 })
+    return responError(500, "Gagal menghapus murid")
   }
 }

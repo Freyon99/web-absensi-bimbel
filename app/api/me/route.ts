@@ -1,3 +1,4 @@
+import { responError, responJson } from "@/lib/api-response"
 import { getUserFromHeader } from "@/lib/get-user"
 import { signToken } from "@/lib/jwt"
 import { ambilToken, setCookieToken } from "@/lib/api-guard"
@@ -19,11 +20,11 @@ export async function GET(req: Request) {
     const safeUser = await getUserFromHeader()
     const tokenBaru = signToken({ id, role })
 
-    const res = Response.json({ token: tokenBaru, user: safeUser })
+    const res = responJson({ token: tokenBaru, user: safeUser })
     setCookieToken(req, res, tokenBaru)
     return res
   } catch (error) {
     console.error("DETAIL ERROR ME:", error)
-    return Response.json({ message: "Unauthorized" }, { status: 401 })
+    return responError(401, "Unauthorized")
   }
 }
